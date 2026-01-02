@@ -1,0 +1,102 @@
+#ifndef NETWORK_H
+#define NETWORK_H
+
+#include <stdio.h>
+#include <string.h>
+#include <fstream>
+#include <iostream>
+#include <vector>
+#include "module.h"
+
+class PingModule : public Module {
+private:
+    bool show_details = true;
+    const char* host = "8.8.8.8";
+
+    // Iconos en formato de bytes hexadecimales (UTF-8 seguro)
+    static constexpr const char* ICON_NET   = "\uef09"; // 󪩚 (Pulso/Ping)
+    static constexpr const char* ICON_DOWN  = "\uea9d"; //  (Flecha abajo)
+    static constexpr const char* ICON_UP    = "\ueaa0"; //  (Flecha arriba)
+    static constexpr const char* ICON_BASIC = "\xef\x9e\x96"; //  (Icono red simple)
+
+    unsigned long long last_sent = 0;
+    unsigned long long last_recv = 0;
+
+    float get_ping() {
+        char cmd[128];
+        snprintf(cmd, sizeof(cmd), "ping -c 1 -W 1 %s | grep 'time=' | awk -F'time=' '{print $2}' | awk '{print $1}'", host);
+
+        FILE* pipe = popen(cmd, "r");
+        if (!pipe) return -1.0f;
+
+        char buffer_cmd[32];
+        float ping_time = -1.0f;
+        if (fgets(buffer_cmd, sizeof(buffer_cmd), pipe) != NULL) {
+            ping_time = atof(buffer_cmd);
+        }
+        pclose(pipe);
+        return ping_time;
+    }
+
+    void get_network_io(unsigned long long &sent, unsigned long long &recv) {
+        std::ifstream file("/proc/net/dev");
+        std::string line;
+        sent = 0; recv = 0;
+        std::getline(file, line);
+        std::getline(file, line);
+
+        while (std::getline(file, line)) {
+            if (line.find("lo:") != std::string::npos) continue;
+            unsigned long long r_bytes, t_bytes, tmp;
+            char iface[32];
+            sscanf(line.c_str(), " %[^:]: %llu %llu %llu %llu %llu %llu %llu %llu %llu",
+                   iface, &r_bytes, &tmp, &tmp, &tmp, &tmp, &tmp, &tmp, &tmp, &t_bytes);
+            recv += r_bytes;
+            sent += t_bytes;
+        }
+    }
+
+public:
+    PingModule() : Module("network") {
+        setSecondsPerUpdate(1);
+        get_network_io(last_sent, last_recv);
+    }
+
+    void update() override {
+        if (!show_details) {
+            buffer = ICON_BASIC;
+            return;
+        }
+
+        unsigned long long current_sent, current_recv;
+        get_network_io(current_sent, current_recv);
+        float ping = get_ping();
+
+        double up_speed = (double)(current_sent - last_sent) / 1024.0;
+        double down_speed = (double)(current_recv - last_recv) / 1024.0;
+
+        if (up_speed < 0) up_speed = 0;
+        if (down_speed < 0) down_speed = 0;
+
+        last_sent = current_sent;
+        last_recv = current_recv;
+
+        char temp_buffer[256];
+        if (ping >= 0) {
+            // Usamos los iconos definidos arriba
+            snprintf(temp_buffer, sizeof(temp_buffer),
+                     "%s %.1fms %s%.1fK %s%.1fK",
+                     ICON_NET, (double)ping, ICON_UP, up_speed, ICON_DOWN, down_speed);
+        } else {
+            snprintf(temp_buffer, sizeof(temp_buffer),
+                     "%s Off %s%.1fK %s%.1fK",
+                     ICON_NET, ICON_UP, up_speed, ICON_DOWN, down_speed);
+        }
+
+        buffer = temp_buffer;
+    }
+
+    void event(const char* eventValue) override {}
+};
+
+#endif
