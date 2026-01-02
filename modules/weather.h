@@ -203,32 +203,32 @@ class WeatherModule : public Module {
     const char* getWeatherDescription() {
       // Simplificación de códigos WMO a descripciones
       switch(weather_code) {
-        case 0: return is_night ? "\uf186" : "\uf522";  // Despejado
+        case 0: return is_night ? u8"\U000f0594" : u8"\U000f0599";  // Despejado
         case 1:
         case 2:
-        case 3: return is_night ? "☁️" : "⛅";  // Parcialmente nublado
+        case 3: return is_night ? u8"\U000f0f31" : u8"\U000f0595";  // Parcialmente nublado
         case 45:
-        case 48: return "🌫️";  // Niebla
+        case 48: return u8"\U000f0591";  // Niebla
         case 51:
         case 53:
-        case 55: return "🌦️";  // Lluvia ligera
+        case 55: return u8"\U000f0f33";  // Lluvia ligera
         case 56:
-        case 57: return "🌨️";  // Lluvia helada ligera
+        case 57: return u8"\U000f0597";  // Lluvia helada ligera
         case 61:
         case 63:
-        case 65: return "🌧️";  // Lluvia moderada/fuerte
+        case 65:
         case 66:
-        case 67: return "🌨️";  // Lluvia helada fuerte
+        case 67: return u8"\U000f0596";  // 󰖖 Lluvia helada fuerte
         case 71:
         case 73:
-        case 75: return "❄️";  // Nieve
-        case 77: return "🌨️";  // Granos de hielo
+        case 75: return u8"\U000f0f36";  // Nieve
+        case 77: return u8"\U000f0592";  // Granizo
         case 80:
         case 81:
-        case 82: return "⛈️";  // Tormentas
+        case 82: return u8"\U000f067e";  // 󰖓 Tormentas
         case 85:
-        case 86: return "🌨️";  // Nevadas ligeras
-        default: return "🌡️";  // Desconocido
+        case 86: return u8"\U000f0598";  // Nevadas ligeras
+        default: return "\uf2c7";  // Desconocido
       }
     }
 
