@@ -23,11 +23,32 @@ class BatteryModule : public Module {
       int hours, minutes;
 
       // Iconos UTF-8 de Nerd Fonts para batería
-      static constexpr const char* ICON_BOLT = "\xef\x83\xa7";         //  Rayo (cargando)
-      static constexpr const char* ICON_BATTERY_FULL = "\xef\x89\x80"; //  Batería 100%
-      static constexpr const char* ICON_BATTERY_75 = "\xef\x89\x81";  //  Batería 75%
-      static constexpr const char* ICON_BATTERY_50 = "\xef\x89\x82";  //  Batería 50%
-      static constexpr const char* ICON_BATTERY_25 = "\xef\x89\x83";  //  Batería 25%
+      static constexpr const char* ICON_BOLT = u8"\U000f0079";         //  Rayo (cargando)
+
+      static constexpr const char* ICON_BATTERY_CHARGING_0 = u8"\U000f089f";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_CHARGING_10 = u8"\U000f089c";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_CHARGING_20 = u8"\U000f0086";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_CHARGING_30 = u8"\U000f0087";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_CHARGING_40 = u8"\U000f0088";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_CHARGING_50 = u8"\U000f089d";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_CHARGING_60 = u8"\U000f0089";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_CHARGING_70 = u8"\U000f089e";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_CHARGING_80 = u8"\U000f008a";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_CHARGING_90 = u8"\U000f008b";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_CHARGING_100 = u8"\U000f0085";  //  Batería 25%
+    //
+      static constexpr const char* ICON_BATTERY_0 = u8"\U000f008e";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_10 = u8"\U000f007a";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_20 = u8"\U000f007b";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_30 = u8"\U000f007c";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_40 = u8"\U000f007d";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_50 = u8"\U000f007e";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_60 = u8"\U000f007f";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_70 = u8"\U000f0080";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_80 = u8"\U000f0081";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_90 = u8"\U000f0082";  //  Batería 25%
+      static constexpr const char* ICON_BATTERY_100 = u8"\U000f0079";  //  Batería 25%
+
       static constexpr const char* ICON_BATTERY_EMPTY = "\xef\x89\x84"; //  Batería 0% (crítico)
 
       const char* icon;
@@ -53,13 +74,29 @@ class BatteryModule : public Module {
       if (f_stat) { fscanf(f_stat, "%s", status); fclose(f_stat); }
 
       if (strcmp(status, "Charging") == 0) {
-          icon = ICON_BOLT;
+          if (percentage >= 95) icon = ICON_BATTERY_CHARGING_100;
+          else if (percentage >= 90) icon = ICON_BATTERY_CHARGING_90;
+          else if (percentage >= 80) icon = ICON_BATTERY_CHARGING_80;
+          else if (percentage >= 70) icon = ICON_BATTERY_CHARGING_70;
+          else if (percentage >= 60) icon = ICON_BATTERY_CHARGING_60;
+          else if (percentage >= 50) icon = ICON_BATTERY_CHARGING_50;
+          else if (percentage >= 40) icon = ICON_BATTERY_CHARGING_40;
+          else if (percentage >= 30) icon = ICON_BATTERY_CHARGING_30;
+          else if (percentage >= 20) icon = ICON_BATTERY_CHARGING_20;
+          else if (percentage >= 10) icon = ICON_BATTERY_CHARGING_10;
+          else                       icon = ICON_BATTERY_CHARGING_0;
       } else {
-          if (percentage >= 90)      icon = ICON_BATTERY_FULL;
-          else if (percentage >= 60) icon = ICON_BATTERY_75;
-          else if (percentage >= 40) icon = ICON_BATTERY_50;
-          else if (percentage >= 15) icon = ICON_BATTERY_25;
-          else                       icon = ICON_BATTERY_EMPTY;
+          if (percentage >= 95) icon = ICON_BATTERY_100;
+          else if (percentage >= 90) icon = ICON_BATTERY_90;
+          else if (percentage >= 80) icon = ICON_BATTERY_80;
+          else if (percentage >= 70) icon = ICON_BATTERY_70;
+          else if (percentage >= 60) icon = ICON_BATTERY_60;
+          else if (percentage >= 50) icon = ICON_BATTERY_50;
+          else if (percentage >= 40) icon = ICON_BATTERY_40;
+          else if (percentage >= 30) icon = ICON_BATTERY_30;
+          else if (percentage >= 20) icon = ICON_BATTERY_20;
+          else if (percentage >= 10) icon = ICON_BATTERY_10;
+          else                       icon = ICON_BATTERY_0;
       }
 
       const char *color = (percentage < 20 && strcmp(status, "Charging") != 0) ? Module::COLOR_ALERT : Module::COLOR_FG;
