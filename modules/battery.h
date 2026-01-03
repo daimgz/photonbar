@@ -4,16 +4,43 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sstream>
+#include <iomanip>
 #include "module.h"
 
 class BatteryModule : public Module {
   public:
+    // Iconos UTF-8 de Nerd Fonts para batería
+    static constexpr const char* ICON_BATTERY_CHARGING_0   = u8"\U000f089f";
+    static constexpr const char* ICON_BATTERY_CHARGING_10  = u8"\U000f089c";
+    static constexpr const char* ICON_BATTERY_CHARGING_20  = u8"\U000f0086";
+    static constexpr const char* ICON_BATTERY_CHARGING_30  = u8"\U000f0087";
+    static constexpr const char* ICON_BATTERY_CHARGING_40  = u8"\U000f0088";
+    static constexpr const char* ICON_BATTERY_CHARGING_50  = u8"\U000f089d";
+    static constexpr const char* ICON_BATTERY_CHARGING_60  = u8"\U000f0089";
+    static constexpr const char* ICON_BATTERY_CHARGING_70  = u8"\U000f089e";
+    static constexpr const char* ICON_BATTERY_CHARGING_80  = u8"\U000f008a";
+    static constexpr const char* ICON_BATTERY_CHARGING_90  = u8"\U000f008b";
+    static constexpr const char* ICON_BATTERY_CHARGING_100 = u8"\U000f0085";
+
+    static constexpr const char* ICON_BATTERY_0            = u8"\U000f008e";
+    static constexpr const char* ICON_BATTERY_10           = u8"\U000f007a";
+    static constexpr const char* ICON_BATTERY_20           = u8"\U000f007b";
+    static constexpr const char* ICON_BATTERY_30           = u8"\U000f007c";
+    static constexpr const char* ICON_BATTERY_40           = u8"\U000f007d";
+    static constexpr const char* ICON_BATTERY_50           = u8"\U000f007e";
+    static constexpr const char* ICON_BATTERY_60           = u8"\U000f007f";
+    static constexpr const char* ICON_BATTERY_70           = u8"\U000f0080";
+    static constexpr const char* ICON_BATTERY_80           = u8"\U000f0081";
+    static constexpr const char* ICON_BATTERY_90           = u8"\U000f0082";
+    static constexpr const char* ICON_BATTERY_100          = u8"\U000f0079";
+
     BatteryModule():
       Module("battery")
     {
-      // Battery solo necesita actualizarse cada 30 segundos
+      // Battery solo necesita actualizarse cada 5 segundos
       setUpdatePerIteration(false);
-      setSecondsPerUpdate(3);
+      setSecondsPerUpdate(5);
     }
 
     void update() {
@@ -21,35 +48,6 @@ class BatteryModule : public Module {
       char status[32] = "Unknown";
       float percentage = 0.0;
       int hours, minutes;
-
-      // Iconos UTF-8 de Nerd Fonts para batería
-      static constexpr const char* ICON_BOLT = u8"\U000f0079";         //  Rayo (cargando)
-
-      static constexpr const char* ICON_BATTERY_CHARGING_0 = u8"\U000f089f";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_CHARGING_10 = u8"\U000f089c";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_CHARGING_20 = u8"\U000f0086";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_CHARGING_30 = u8"\U000f0087";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_CHARGING_40 = u8"\U000f0088";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_CHARGING_50 = u8"\U000f089d";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_CHARGING_60 = u8"\U000f0089";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_CHARGING_70 = u8"\U000f089e";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_CHARGING_80 = u8"\U000f008a";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_CHARGING_90 = u8"\U000f008b";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_CHARGING_100 = u8"\U000f0085";  //  Batería 25%
-    //
-      static constexpr const char* ICON_BATTERY_0 = u8"\U000f008e";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_10 = u8"\U000f007a";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_20 = u8"\U000f007b";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_30 = u8"\U000f007c";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_40 = u8"\U000f007d";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_50 = u8"\U000f007e";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_60 = u8"\U000f007f";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_70 = u8"\U000f0080";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_80 = u8"\U000f0081";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_90 = u8"\U000f0082";  //  Batería 25%
-      static constexpr const char* ICON_BATTERY_100 = u8"\U000f0079";  //  Batería 25%
-
-      static constexpr const char* ICON_BATTERY_EMPTY = "\xef\x89\x84"; //  Batería 0% (crítico)
 
       const char* icon;
 
@@ -117,12 +115,14 @@ class BatteryModule : public Module {
               b = 0;
           }
 
-          static char icon_color_buffer[32];
-          sprintf(icon_color_buffer, "#%02X%02X%02X", r, g, b);
-          icon_color = icon_color_buffer;
+          std::stringstream ss;
+          ss << "#" << std::hex << std::setw(2) << std::setfill('0') << r
+             << std::setw(2) << std::setfill('0') << g
+             << std::setw(2) << std::setfill('0') << b;
+          static std::string icon_color_str = ss.str();
+          icon_color = icon_color_str.c_str();
       }
 
-      char temp_buffer[256];
       if (power_now > 0 && (strcmp(status, "Discharging") == 0 || strcmp(status, "Charging") == 0)) {
           float time_float;
           if (strcmp(status, "Discharging") == 0)
@@ -133,20 +133,30 @@ class BatteryModule : public Module {
           hours = (int)time_float;
           minutes = (int)((time_float - hours) * 60);
 
+          std::stringstream ss;
           if (strcmp(status, "Charging") == 0) {
-              sprintf(temp_buffer, "%%{F%s}%s%%{F-} %%{F%s}%.2f%% %02d:%02d%%{F-}", icon_color, icon, color, percentage, hours, minutes);
+              ss << "%{F" << icon_color << "}" << icon << "%{F-} %{F" << color << "}"
+                 << std::fixed << std::setprecision(2) << percentage << "% "
+                 << std::setw(2) << std::setfill('0') << hours << ":"
+                 << std::setw(2) << std::setfill('0') << minutes << "%{F-}";
           } else {
-              sprintf(temp_buffer, "%%{F%s}%s %.2f%% %02d:%02d%%{F-}", color, icon, percentage, hours, minutes);
+              ss << "%{F" << color << "}" << icon << " "
+                 << std::fixed << std::setprecision(2) << percentage << "% "
+                 << std::setw(2) << std::setfill('0') << hours << ":"
+                 << std::setw(2) << std::setfill('0') << minutes << "%{F-}";
           }
+          buffer = ss.str();
       } else {
+          std::stringstream ss;
           if (strcmp(status, "Charging") == 0) {
-              sprintf(temp_buffer, "%%{F%s}%s%%{F-} %%{F%s}%.2f%%%%{F-}", icon_color, icon, color, percentage);
+              ss << "%{F" << icon_color << "}" << icon << "%{F-} %{F" << color << "}"
+                 << std::fixed << std::setprecision(2) << percentage << "%{F-}";
           } else {
-              sprintf(temp_buffer, "%%{F%s}%s %.2f%%{F-}", color, icon, percentage);
+              ss << "%{F" << color << "}" << icon << " "
+                 << std::fixed << std::setprecision(2) << percentage << "%{F-}";
           }
+          buffer = ss.str();
       }
-
-      buffer = temp_buffer;
     }
 
     void event(const char* eventValue) {
