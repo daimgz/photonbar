@@ -29,7 +29,7 @@ SRCS = main.cpp process_manager.cpp bar.cpp
 OBJS = build/main.o build/process_manager.o build/bar.o
 
 # Dependencias de headers locales
-HEADERS = bar.h modules/datetime.h modules/battery.h modules/audio.h modules/workspace.h modules/resources.h modules/i3ipc.h modules/module.h modules/weather.h modules/space.h process_manager.h
+HEADERS = bar.h modules/datetime.h modules/module.h process_manager.h
 
 PREFIX ?= /usr/local
 BINDIR = ${PREFIX}/bin

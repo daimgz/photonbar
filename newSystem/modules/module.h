@@ -8,6 +8,7 @@
 #include <ctime>
 #include <algorithm>
 #include <cstring>
+#include "../barElement.h"
 
 // Forward declaration
 class BarManager;
@@ -38,20 +39,25 @@ class Module {
       return name;
     }
 
+    std::vector<BarElement*> getElements() {
+      return elements;
+    }
+
     virtual void update() = 0;
     virtual void event(const char* eventValue) = 0;
     virtual bool initialize() { return true; } // Default implementation for modules that don't need initialization
 
     // Método para manejar clics (puede ser sobrescrito)
-    virtual bool handleClick(const char* eventValue) {
-        if (eventValue && strlen(eventValue) > 0) {
-            event(eventValue);
+    virtual bool handleClick(EventFunction func) {
+        //if (eventValue && strlen(eventValue) > 0) {
+            //event(eventValue);
+            func();
             if (update_on_click) {
                 update();
             }
             return render_on_click;
-        }
-        return false;
+        //}
+        //return false;
     }
 
     // Métodos de control de actualización
@@ -98,6 +104,8 @@ class Module {
     bool render_on_click;           // Forzar renderizado en clic
 
     std::string name, buffer;
+
+    std::vector<BarElement*> elements;
 
     // Permitir acceso a BarManager
     friend class BarManager;

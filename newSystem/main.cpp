@@ -1,3 +1,4 @@
+#include "process_manager.h"
 #define _POSIX_C_SOURCE 200809L
 #define _BSD_SOURCE
 #define I3IPC_IMPLEMENTATION  // For single-header i3ipc library
@@ -25,15 +26,15 @@
 
 // --- MÓDULOS PROPIOS ---
 #include "modules/datetime.h"
-#include "modules/battery.h"
-#include "modules/audio.h"
-#include "modules/workspace.h"
-#include "modules/resources.h"
-#include "modules/ping.h"
-#include "modules/stopwatch.h"
-#include "modules/timer.h"
-#include "modules/weather.h"
-#include "modules/space.h"
+//#include "modules/battery.h"
+//#include "modules/audio.h"
+#include "../modules/workspace.h"
+//#include "modules/resources.h"
+//#include "modules/ping.h"
+//#include "modules/stopwatch.h"
+//#include "modules/timer.h"
+//#include "modules/weather.h"
+//#include "modules/space.h"
 #include "process_manager.h"
 #include "bar.h"
 
@@ -76,6 +77,8 @@ public:
     isTop(isTop),
     xcb_fd(-1)
   {
+    if (leftModules.empty())
+      return;
 
     // Guardar las direcciones de los módulos pasados por parámetro
     for (Module* module : leftModules) {
@@ -91,6 +94,10 @@ public:
             workspace = static_cast<WorkspaceModule*>(module);
             break;
         }
+        for(BarElement* element : module->getElements()) {
+          elements.push_back(element);
+          std::cout << std::endl << std::endl << "main.cpp constructor for estoy '" << element->content << "' len " << element->contentLen << std::endl << std::endl << std::endl;
+        }
     }
 
     bar = new Bar(
@@ -103,6 +110,7 @@ public:
       }
     );
     xcb_fd = bar->lemonbar_get_xcb_fd();
+    std::cout << std::endl << std::endl << "main.cpp constructor estoy '" << elements[0]->content << "' len " << elements[0]->contentLen << std::endl << std::endl << std::endl;
   }
 
   bool initialize() {
@@ -126,6 +134,9 @@ public:
   }
 
   void run() {
+      if (elements.empty()) {
+          return;
+      }
       render_bar(); // Initial render
 
       while (!g_shutdown.load()) {
@@ -202,6 +213,7 @@ public:
   std::vector<Module*> modules;
   const std::vector<Module*> leftModules;
   const std::vector<Module*> rightModules;
+  std::vector<BarElement*> elements;
   const bool isTop;
 
   // Variables del scheduler migradas
@@ -267,64 +279,76 @@ public:
        }
    }
 
-   bool handle_click(const char *input) {
-       // Make a local copy as callers may pass internal pointers
-       char buf[256];
-       snprintf(buf, sizeof(buf), "%s", input ? input : "");
+  bool handle_click(const char *input) {
+     // Make a local copy as callers may pass internal pointers
+     char buf[256];
+     snprintf(buf, sizeof(buf), "%s", input ? input : "");
 
-       fprintf(stderr, "[BarManager] handle_click: received '%s'\n", buf);
+     fprintf(stderr, "[BarManager] handle_click: received '%s'\n", buf);
 
-       // Llamar handleClick en todos los módulos usando el array
-       bool needs_update = false;
-       for (auto& module : modules) {
-           needs_update = module->handleClick(buf);
-       }
+     // Llamar handleClick en todos los módulos usando el array
+     bool needs_update = false;
+     for (auto& module : modules) {
+      for(BarElement* element : module->elements) {
+        if (strstr(buf, element->moduleName.c_str())) {
+          for (std::pair<EventType, EventFunction> pair : element->events) {
+            std::string eventId = std::to_string((int)pair.first);
+            if (strstr(buf, eventId.c_str())) {
+              needs_update = module->handleClick(pair.second);
+            }
+          }
+        }
+      }
+     }
 
-       return needs_update;
+     return needs_update;
    }
 
   void render_bar() {
+      if (elements.empty())
+        return;
       // Los módulos ya se actualizaron a través del scheduler
       char buf[8000];
       static int renderCount = 0;
 
-      // Construir buffer
-      std::string output = "%{l}";
+      //// Construir buffer
+      //std::string output = "%{l}";
 
-      // Módulos izquierdos con separadores
-      bool first_left = true;
-      for (Module* module : leftModules) {
-          if (!first_left) {
-              output += "%{F" + std::string(COLOR_SEP) + "}" + SEP_SYM + "%{F-}";
-          }
-          first_left = false;
+      //// Módulos izquierdos con separadores
+      //bool first_left = true;
+      //for (Module* module : leftModules) {
+          //if (!first_left) {
+              //output += "%{F" + std::string(COLOR_SEP) + "}" + SEP_SYM + "%{F-}";
+          //}
+          //first_left = false;
 
-          output += "%{F" + std::string(COLOR_FG) + "}";
-          output += module->getBuffer();
-      }
+          //output += "%{F" + std::string(COLOR_FG) + "}";
+          //output += module->getBuffer();
+      //}
 
-      output += "%{r}";
+      //output += "%{r}";
 
-      // Módulos derechos con separadores
-      bool first = true;
-      for (Module* module : rightModules) {
-          if (!first) {
-              output += "%{F" + std::string(COLOR_SEP) + "}" + SEP_SYM + "%{F-}";
-          }
-          first = false;
+      //// Módulos derechos con separadores
+      //bool first = true;
+      //for (Module* module : rightModules) {
+          //if (!first) {
+              //output += "%{F" + std::string(COLOR_SEP) + "}" + SEP_SYM + "%{F-}";
+          //}
+          //first = false;
 
-          output += "%{F" + std::string(COLOR_FG) + "}";
-          output += module->getBuffer();
-      }
+          //output += "%{F" + std::string(COLOR_FG) + "}";
+          //output += module->getBuffer();
+      //}
 
-      output += " %{F" + std::string(COLOR_SEP) + "}\n";
+      //output += " %{F" + std::string(COLOR_SEP) + "}\n";
 
-      int n = snprintf(buf, sizeof(buf), "%s", output.c_str());
-      if (n > 0) {
+      //int n = snprintf(buf, sizeof(buf), "%s", output.c_str());
+      //if (n > 0) {
           renderCount++;
           fprintf(stderr, "[BarManager] Rendering bar with content: %s\n num: %i", buf, renderCount);
-          bar->lemonbar_feed(buf);
-      }
+          //std::cout << std::endl << std::endl << "main.cpp estoy" << elements[0]->content << " len " << elements[0]->contentLen << std::endl << std::endl << std::endl;
+          bar->lemonbar_feed(&elements);
+      //}
   }
 
   void handle_x_events(fd_set &fds) {
@@ -408,28 +432,29 @@ int main(int argc, char* argv[]) {
 
     // Crear módulos fuera de los hilos para evitar problemas de lifetime
     static WorkspaceModule workspace_top;
-    static AudioModule audio_top;
-    static BatteryModule battery_top;
+    //static AudioModule audio_top;
+    //static BatteryModule battery_top;
     static DateTimeModule datetime_top;
-    static WeatherModule weather_top;
-    static SpaceModule space_bottom;
-    static ResourcesModule resources_bottom;
-    static PingModule ping_bottom;
-    static StopwatchModule stopwatch_top;
-    static StopwatchModule stopwatch_bottom;
-    static TimerModule timer_top;
-    static TimerModule timer_bottom;
+    //static WeatherModule weather_top;
+    //static SpaceModule space_bottom;
+    //static ResourcesModule resources_bottom;
+    //static PingModule ping_bottom;
+    //static StopwatchModule stopwatch_top;
+    //static StopwatchModule stopwatch_bottom;
+    //static TimerModule timer_top;
+    //static TimerModule timer_bottom;
 
     // Thread para inicializar y ejecutar barra superior
     std::thread top_thread([debug_log]() {
         std::vector<Module*> left_modules;
-        left_modules.push_back(&workspace_top);
+        //left_modules.push_back(&workspace_top);
+        left_modules.push_back(&datetime_top);
 
         std::vector<Module*> right_modules;
-        right_modules.push_back(&audio_top);
-        right_modules.push_back(&battery_top);
-        right_modules.push_back(&weather_top);
-        right_modules.push_back(&datetime_top);
+        //right_modules.push_back(&audio_top);
+        //right_modules.push_back(&battery_top);
+        //right_modules.push_back(&weather_top);
+        //right_modules.push_back(&datetime_top);
 
         BarManager barTop(
           "topBar",
@@ -478,13 +503,13 @@ int main(int argc, char* argv[]) {
     // Thread para inicializar y ejecutar barra inferior (con timer y stopwatch)
     std::thread bottom_thread([debug_log]() {
         std::vector<Module*> left_modules;
-        left_modules.push_back(&timer_bottom);
-        left_modules.push_back(&stopwatch_bottom);
+        //left_modules.push_back(&timer_bottom);
+        //left_modules.push_back(&stopwatch_bottom);
 
         std::vector<Module*> right_modules;
-        right_modules.push_back(&space_bottom);
-        right_modules.push_back(&resources_bottom);
-        right_modules.push_back(&ping_bottom);
+        //right_modules.push_back(&space_bottom);
+        //right_modules.push_back(&resources_bottom);
+        //right_modules.push_back(&ping_bottom);
 
         BarManager barBottom(
           "bottomBar",

@@ -9,6 +9,8 @@
 #include <fmt/format.h>
 
 class DateTimeModule : public Module {
+  private:
+  BarElement* label;
   public:
     DateTimeModule():
       Module("datetime"),
@@ -16,13 +18,25 @@ class DateTimeModule : public Module {
       show_hour(true)
     {
       updateConfiguration();
+      label = new BarElement();
+      strcpy(label->content, "Testeo :D\0");
+      //label->content = (char*)tmp.c_str();
+      label->contentLen = 10;
+
+        std::cout << std::endl << std::endl << label->content << std::endl << std::endl << std::endl;
+      elements = {
+      label
+      };
     }
+  ~DateTimeModule() {
+    delete label;
+  }
 
     void update() {
       time_t now = time(NULL);
       struct tm *tm = localtime(&now);
 
-      buffer = "%{A1:dt_click:}";
+      //buffer = "%{A1:dt_click:}";
       buffer += fmt::format(
         "{} {:02d}-{:02d}-{:04d}",
         dias[tm->tm_wday], tm->tm_mday, tm->tm_mon + 1, tm->tm_year + 1900
@@ -36,7 +50,10 @@ class DateTimeModule : public Module {
           )
         );
       }
-      buffer += "%{A}";
+      //buffer += "%{A}";
+      strcpy(label->content, (char*)buffer.c_str());
+        std::cout << std::endl << std::endl <<  "se actualizo la fecha" <<label->content << std::endl << std::endl << std::endl;
+      label->contentLen = buffer.length();
     }
 
     void event(const char* eventValue) {

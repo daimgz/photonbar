@@ -6,6 +6,9 @@
 #include <cstdlib>
 #include <functional>
 #include <cstring>
+#include <map>
+#include <string>
+#include <xcb/xproto.h>
 
 // Constantes para alineación (compatibles con bar.h)
 #define ALIGN_L 0
@@ -20,22 +23,11 @@ enum class EventType {
     SCROLL_DOWN = 5
 };
 
-// Estructura optimizada para RAM/CPU - 5 punteros directos (40 bytes x64)
-struct EventHandlers {
-    std::function<void()> onClick;
-    std::function<void()> onMiddleClick;
-    std::function<void()> onRightClick;
-    std::function<void()> onScrollUp;
-    std::function<void()> onScrollDown;
-
-    // Constructor para inicialización eficiente
-    EventHandlers() : onClick(nullptr), onMiddleClick(nullptr),
-                     onRightClick(nullptr), onScrollUp(nullptr), onScrollDown(nullptr) {}
-};
+typedef std::function<void()> EventFunction;
 
 struct BarElement {
     // --- Datos de texto (owned) ---
-    char* content;
+    char content[100];
     uint32_t contentLen;
 
     // --- Datos de color ---
@@ -44,7 +36,11 @@ struct BarElement {
     Color underlineColor;
 
     // --- Manejo de eventos múltiples ---
-    EventHandlers events;
+    std::map<EventType, EventFunction> events;
+    const std::string moduleName;
+
+    //TODO: esto debe pasar a ser por modulo que por elemento
+    xcb_window_t window;
 
     // --- Datos de formato ---
     int alignment;           // ALIGN_L/C/R
@@ -53,8 +49,8 @@ struct BarElement {
     int screenTarget;       // +/-/f/l/número
 
     // --- Datos de posición (calculados) ---
-    int beginX;
-    int endX;
+    unsigned int beginX: 16;
+    unsigned int endX: 16;
 
     // --- Estados y atributos ---
     bool underline;
@@ -64,39 +60,33 @@ struct BarElement {
 
     // --- Métodos eficientes para manejo de eventos ---
     inline void setEvent(EventType type, std::function<void()> handler) {
-        switch(type) {
-            case EventType::CLICK_LEFT:   events.onClick = handler; break;
-            case EventType::CLICK_MIDDLE: events.onMiddleClick = handler; break;
-            case EventType::CLICK_RIGHT:  events.onRightClick = handler; break;
-            case EventType::SCROLL_UP:    events.onScrollUp = handler; break;
-            case EventType::SCROLL_DOWN:  events.onScrollDown = handler; break;
-        }
+        events[type] = handler;
     }
 
     // Constructor por defecto con valores inicializados
-    BarElement() : content(nullptr), contentLen(0),
+    BarElement() : content(""), contentLen(0),
                    alignment(ALIGN_L), fontIndex(-1), offsetPixels(0), screenTarget(0),
                    beginX(0), endX(0), underline(false), overline(false),
                    reverseColors(false), isActive(false) {}
 
     // Constructor eficiente con texto
-    BarElement(const char* text) : contentLen(strlen(text)),
-                   alignment(ALIGN_L), fontIndex(-1), offsetPixels(0), screenTarget(0),
-                   beginX(0), endX(0), underline(false), overline(false),
-                   reverseColors(false), isActive(false) {
-        content = (char*)malloc(contentLen + 1);
-        if (content) {
-            memcpy(content, text, contentLen);
-            content[contentLen] = '\0';
-        }
-    }
+    //BarElement(const char* text) : contentLen(strlen(text)),
+                   //alignment(ALIGN_L), fontIndex(-1), offsetPixels(0), screenTarget(0),
+                   //beginX(0), endX(0), underline(false), overline(false),
+                   //reverseColors(false), isActive(false) {
+        //content = (char*)malloc(contentLen + 1);
+        //if (content) {
+            //memcpy(content, text, contentLen);
+            //content[contentLen] = '\0';
+        //}
+    //}
 
     // Destructor automático para gestión de memoria
     ~BarElement() {
-        if (content) {
-            free(content);
-            content = nullptr;
-        }
+        //if (content) {
+            //free(content);
+            //content = nullptr;
+        //}
     }
 
     // Prevenir copias inesperadas (RAII)
@@ -104,22 +94,24 @@ struct BarElement {
     BarElement& operator=(const BarElement&) = delete;
 
     // Mover semantics para eficiencia
-    BarElement(BarElement&& other) noexcept : content(other.content), contentLen(other.contentLen),
-                                            alignment(other.alignment), fontIndex(other.fontIndex),
-                                            offsetPixels(other.offsetPixels), screenTarget(other.screenTarget),
-                                            beginX(other.beginX), endX(other.endX),
-                                            underline(other.underline), overline(other.overline),
-                                            reverseColors(other.reverseColors), isActive(other.isActive),
-                                            events(std::move(other.events)) {
-        other.content = nullptr;
-        other.contentLen = 0;
+    BarElement(BarElement&& other) noexcept : contentLen(other.contentLen),
+                                            events(std::move(other.events)), alignment(other.alignment),
+                                            fontIndex(other.fontIndex), offsetPixels(other.offsetPixels),
+                                            screenTarget(other.screenTarget), beginX(other.beginX),
+                                            endX(other.endX), underline(other.underline),
+                                            overline(other.overline), reverseColors(other.reverseColors),
+                                            isActive(other.isActive) {
+        strcpy(content, other.content);
+        //other.content = nullptr;
+        //other.contentLen = 0;
     }
 
     BarElement& operator=(BarElement&& other) noexcept {
         if (this != &other) {
-            if (content) free(content);
+            //if (content) free(content);
 
-            content = other.content;
+            strcpy(content, other.content);
+            //content = other.content;
             contentLen = other.contentLen;
             alignment = other.alignment;
             fontIndex = other.fontIndex;
@@ -133,8 +125,8 @@ struct BarElement {
             isActive = other.isActive;
             events = std::move(other.events);
 
-            other.content = nullptr;
-            other.contentLen = 0;
+            //other.content = nullptr;
+            //other.contentLen = 0;
         }
         return *this;
     }
