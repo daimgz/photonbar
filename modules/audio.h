@@ -172,7 +172,7 @@ private:
     }
 
     const char* get_icon(const std::string& name) {
-        if (name.find("bluez") != std::string::npos) return "\uf025";  // Headset
+        if (name.find("bluez") != std::string::npos) return u8"\U000f02cb";  // Headset
         if (name.find("alsa") != std::string::npos) return "\ue638";   // Speaker
         return "\xef\x90\x9c"; // Generic
     }
