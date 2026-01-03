@@ -14,11 +14,11 @@ private:
     bool is_paused = false;
     bool show_details = false;
     long long accumulated_pause_time = 0;
-    long long target_duration_ms = 0; // Inicializado en 0 por default
+    long long target_duration_ms = 0;
 
     static constexpr const char* ICON_PLAY = " \uf04b";
     static constexpr const char* ICON_PAUSE = " \uf04c";
-    static constexpr const char* ICON_LOGO = "\ue384";
+    static constexpr const char* ICON_LOGO = u8"\U000f06ad";
 
     long long get_remaining_ms() {
         if (!is_running) return target_duration_ms;
