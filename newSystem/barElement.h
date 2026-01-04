@@ -15,20 +15,106 @@
 #define ALIGN_C 1
 #define ALIGN_R 2
 
+#define CONTENT_MAX_LEN 255
 
 typedef std::function<void()> EventFunction;
 
-struct BarElement {
+class BarElement {
     // --- Datos de texto (owned) ---
-enum EventType {
-    CLICK_LEFT = 1,
-    CLICK_MIDDLE = 2,
-    CLICK_RIGHT = 3,
-    SCROLL_UP = 4,
-    SCROLL_DOWN = 5
-};
-    char content[100];
-    uint32_t contentLen;
+  private:
+    char content[CONTENT_MAX_LEN];
+    uint32_t ucsContent[CONTENT_MAX_LEN];
+    uint8_t contentLen;
+
+    // --- Datos de posición (calculados) ---
+    uint16_t beginX;
+    uint16_t widthX;
+
+
+  public:
+    const char *getContent() const { return content; }
+    uint8_t getContentLen() const { return contentLen; }
+    uint16_t getBeginX() const { return beginX; }
+    uint16_t getWidthX() const { return widthX; }
+
+    void setContent(const char *str, const uint8_t len) {
+        this->contentLen = len;
+        strcpy(content, str);
+
+        std::memset(ucsContent, 0, sizeof(ucsContent));
+
+        int ucsCount = 0;
+        for (;;) {
+            if (*str == '\0' || *str == '\n') {
+                ucsContent[ucsCount] = '\0';
+                break;
+            }
+
+            uint8_t *utf = (uint8_t *)str;
+            uint32_t ucs; // Código Unicode de 32 bits (soporta emoji/iconos)
+
+            // === DECODIFICACIÓN UTF-8 ===
+            // ASCII (1 byte): 0xxxxxxx
+            if (utf[0] < 0x80) {
+                ucs = utf[0];
+                str  += 1;
+            }
+            // UTF-8 de 2 bytes: 110xxxxx 10xxxxxx
+            else if ((utf[0] & 0xe0) == 0xc0) {
+                ucs = (utf[0] & 0x1f) << 6 | (utf[1] & 0x3f);
+                str += 2;
+            }
+            // UTF-8 de 3 bytes: 1110xxxx 10xxxxxx 10xxxxxx
+            else if ((utf[0] & 0xf0) == 0xe0) {
+                ucs = (utf[0] & 0xf) << 12 | (utf[1] & 0x3f) << 6 | (utf[2] & 0x3f);
+                str += 3;
+            }
+            // UTF-8 de 4 bytes: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+            // AQUÍ ES DONDE ESTÁN LOS ICONOS NUEVOS (emoji, símbolos Unicode extendidos)
+            else if ((utf[0] & 0xf8) == 0xf0) {
+                ucs = (utf[0] & 0x07) << 18 | (utf[1] & 0x3f) << 12 | (utf[2] & 0x3f) << 6 | (utf[3] & 0x3f);
+                str += 4;
+            }
+            // Secuencias de 5 y 6 bytes son obsoletas en el estándar Unicode actual
+            else {
+                ucs = utf[0];
+                str += 1;
+            }
+
+            ucsContent[ucsCount] = ucs;
+            ucsCount++;
+
+
+            // === SELECCIÓN DE FUENTE APROPIADA ===
+            cur_font = select_drawable_font(ucs);
+            if (!cur_font)
+                continue;  // Si ninguna fuente tiene el glifo, omitir carácter
+
+            // === CONFIGURACIÓN DE FUENTE EN CONTEXTO GRÁFICO ===
+            if(cur_font->ptr)  // Solo para fuentes XCB (no Xft)
+                xcb_change_gc(c, gc[GC_DRAW] , XCB_GC_FONT, (const uint32_t []) {
+                cur_font->ptr
+            });
+
+            // === DIBUJAR CARÁCTER ===
+            //TODO: obtener el width de algu manera
+            //int w = draw_char(cur_mon, cur_font, pos_x, align, ucs);
+
+            // === ACTUALIZAR POSICIÓN Y ÁREAS ===
+            pos_x += w;  // Avanza posición X según ancho del carácter
+            area_shift(cur_mon->window, align, w);  // Ajusta áreas clickeables
+                //std::cout << "ucs: " << ucs << ", w: " << w << std::endl;
+        }
+
+    }
+
+    enum EventType {
+        CLICK_LEFT = 1,
+        CLICK_MIDDLE = 2,
+        CLICK_RIGHT = 3,
+        SCROLL_UP = 4,
+        SCROLL_DOWN = 5
+    };
 
     // --- Datos de color ---
     Color foregroundColor;
@@ -48,9 +134,6 @@ enum EventType {
     int offsetPixels;
     int screenTarget;       // +/-/f/l/número
 
-    // --- Datos de posición (calculados) ---
-    unsigned int beginX: 16;
-    unsigned int endX: 16;
 
     // --- Estados y atributos ---
     bool underline;
@@ -69,67 +152,6 @@ enum EventType {
                    beginX(0), endX(0), underline(false), overline(false),
                    reverseColors(false), isActive(false) {}
 
-    // Constructor eficiente con texto
-    //BarElement(const char* text) : contentLen(strlen(text)),
-                   //alignment(ALIGN_L), fontIndex(-1), offsetPixels(0), screenTarget(0),
-                   //beginX(0), endX(0), underline(false), overline(false),
-                   //reverseColors(false), isActive(false) {
-        //content = (char*)malloc(contentLen + 1);
-        //if (content) {
-            //memcpy(content, text, contentLen);
-            //content[contentLen] = '\0';
-        //}
-    //}
-
-    // Destructor automático para gestión de memoria
-    ~BarElement() {
-        //if (content) {
-            //free(content);
-            //content = nullptr;
-        //}
-    }
-
-    // Prevenir copias inesperadas (RAII)
-    BarElement(const BarElement&) = delete;
-    BarElement& operator=(const BarElement&) = delete;
-
-    // Mover semantics para eficiencia
-    BarElement(BarElement&& other) noexcept : contentLen(other.contentLen),
-                                            events(std::move(other.events)), alignment(other.alignment),
-                                            fontIndex(other.fontIndex), offsetPixels(other.offsetPixels),
-                                            screenTarget(other.screenTarget), beginX(other.beginX),
-                                            endX(other.endX), underline(other.underline),
-                                            overline(other.overline), reverseColors(other.reverseColors),
-                                            isActive(other.isActive) {
-        strcpy(content, other.content);
-        //other.content = nullptr;
-        //other.contentLen = 0;
-    }
-
-    BarElement& operator=(BarElement&& other) noexcept {
-        if (this != &other) {
-            //if (content) free(content);
-
-            strcpy(content, other.content);
-            //content = other.content;
-            contentLen = other.contentLen;
-            alignment = other.alignment;
-            fontIndex = other.fontIndex;
-            offsetPixels = other.offsetPixels;
-            screenTarget = other.screenTarget;
-            beginX = other.beginX;
-            endX = other.endX;
-            underline = other.underline;
-            overline = other.overline;
-            reverseColors = other.reverseColors;
-            isActive = other.isActive;
-            events = std::move(other.events);
-
-            //other.content = nullptr;
-            //other.contentLen = 0;
-        }
-        return *this;
-    }
 };
 
 #endif // BARELEMENT_H

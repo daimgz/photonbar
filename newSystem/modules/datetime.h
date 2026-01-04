@@ -10,7 +10,8 @@
 
 class DateTimeModule : public Module {
   private:
-  BarElement* label;
+  BarElement baseElement;
+
   public:
     DateTimeModule():
       Module("datetime"),
@@ -18,53 +19,53 @@ class DateTimeModule : public Module {
       show_hour(true)
     {
       updateConfiguration();
-      label = new BarElement();
-      strcpy(label->content, "Testeo :D\0");
-      //label->content = (char*)tmp.c_str();
-      label->moduleName = "datetime";
-      label->contentLen = 10;
 
-        std::cout << std::endl << std::endl << label->content << std::endl << std::endl << std::endl;
-      label->setEvent(BarElement::CLICK_LEFT, [this](){
+      baseElement.moduleName = name;
+      baseElement.setEvent(BarElement::CLICK_LEFT, [this](){
           this->show_hour = !show_hour;
           updateConfiguration();
           // Forzar actualización inmediata DESPUÉS del clic
           markForUpdate();
         }
       );
-      elements = {
-      label
-      };
-    }
+
+      elements.push_back(&baseElement);
+  }
   ~DateTimeModule() {
-    delete label;
   }
 
-    void update() {
-      time_t now = time(NULL);
-      struct tm *tm = localtime(&now);
+  void update() {
+    time_t now = time(NULL);
+        struct tm *tm = localtime(&now);
 
-      //buffer = "%{A1:dt_click:}";
-      std::string buffer = fmt::format(
-        "{} {:02d}-{:02d}-{:04d}",
-        dias[tm->tm_wday], tm->tm_mday, tm->tm_mon + 1, tm->tm_year + 1900
-      );
+        int len;
 
-      if (show_hour) {
-        buffer.append(
-          fmt::format(
-            " {:02d}:{:02d}:{:02d}",
-            tm->tm_hour, tm->tm_min, tm->tm_sec
-          )
-        );
-      }
-      //buffer += "%{A}";
-      std::cout << "antes: " << label->content  << std::endl;
-      strcpy(label->content, (char*)buffer.c_str());
-        std::cout << std::endl << std::endl <<  "se actualizo la fecha" <<label->content << std::endl << std::endl << std::endl;
-      std::cout << "despues: " << label->content  << std::endl;
-      label->contentLen = buffer.length();
+        if (show_hour) {
+            len = snprintf(
+                baseElement.content,
+                CONTENT_MAX_LEN,
+                "%s %02d-%02d-%04d %02d:%02d:%02d",
+                dias[tm->tm_wday],
+                tm->tm_mday,
+                tm->tm_mon + 1,
+                tm->tm_year + 1900,
+                tm->tm_hour,
+                tm->tm_min,
+                tm->tm_sec
+            );
+        } else {
+            len = snprintf(
+                baseElement.content,
+                CONTENT_MAX_LEN,
+                "%s %02d-%02d-%04d",
+                dias[tm->tm_wday],
+                tm->tm_mday,
+                tm->tm_mon + 1,
+                tm->tm_year + 1900
+            );
+        }
 
+        baseElement.contentLen = (size_t)len;
     }
 
     void updateConfiguration() {

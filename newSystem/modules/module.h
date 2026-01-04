@@ -15,20 +15,9 @@ class BarManager;
 
 class Module {
   public:
-    enum EventType {
-      NONE,
-      LEFT_CLICK,
-      MIDDLE_CLICK,
-      RIGHT_CLICK,
-      SCROLL_UP,
-      SCROLL_DOWN
-    };
 
     // Colores comunes para todos los módulos
     static constexpr const char* COLOR_FG = "#E0AAFF";    // Lila claro del tema
-    static constexpr const char* COLOR_ALERT = "#FF6B6B";  // Rojo suave para alertas
-    static constexpr const char* COLOR_MUTED = "#FF6B6B";   // Rojo para estado muteado
-
     static constexpr const char* COLOR_RED = "#FF6B6B";   // Rojo para estado muteado
 
     const char *getBuffer() {
@@ -44,20 +33,15 @@ class Module {
     }
 
     virtual void update() = 0;
-    virtual void event(const char* eventValue) = 0;
     virtual bool initialize() { return true; } // Default implementation for modules that don't need initialization
 
     // Método para manejar clics (puede ser sobrescrito)
     virtual bool handleClick(EventFunction func) {
-        //if (eventValue && strlen(eventValue) > 0) {
-            //event(eventValue);
-            func();
-            if (update_on_click) {
-                update();
-            }
-            return render_on_click;
-        //}
-        //return false;
+      func();
+      if (update_on_click) {
+          update();
+      }
+      return render_on_click;
     }
 
     // Métodos de control de actualización
@@ -85,8 +69,7 @@ class Module {
       auto_update(true),
       update_on_click(true),
       render_on_click(true),
-      name(name),
-      buffer("")
+      name(name)
     {
     };
 
@@ -103,10 +86,12 @@ class Module {
     bool update_on_click;          // Actualizar instantáneamente en clic
     bool render_on_click;           // Forzar renderizado en clic
 
-    std::string name, buffer;
-
+    std::string name;
     std::vector<BarElement*> elements;
 
+
+    //TODO: a eliminar
+    std::string buffer ;
     // Permitir acceso a BarManager
     friend class BarManager;
 };

@@ -271,7 +271,7 @@ public:
   }
 
    void handle_click_wrapper(const char *input) {
-    std::cout << std::endl << std::endl << "[BarManager] handle_click_wrapper: received '" << input << "'" << std::endl << std::endl <<std::endl;
+    //std::cout << std::endl << std::endl << "[BarManager] handle_click_wrapper: received '" << input << "'" << std::endl << std::endl <<std::endl;
        bool needs_update = handle_click(input);
 
        // Si el clic requiere actualización, renderizar inmediatamente

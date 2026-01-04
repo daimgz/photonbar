@@ -1022,7 +1022,6 @@ void parseBarElement (std::vector<BarElement*> *elements)
     //char *block_end, *ep; // Punteros: actual al texto, fin del bloque, fin de parámetro
     Color tmp;               // Variable temporal para intercambiar colores
 
-                            area_t *a;
     // === INICIALIZACIÓN DE ESTADO DE DIBUJO ===
     pos_x = 0;              // Posición X inicial (comienza desde la izquierda)
     align = ALIGN_L;         // Alineación inicial: izquierda
@@ -1102,6 +1101,7 @@ void parseBarElement (std::vector<BarElement*> *elements)
 
                         element->beginX = pos_x;
                         for (std::pair<BarElement::EventType, EventFunction> pair : element->events) {
+                            area_t *a;
                             a = &area_stack.area[area_stack.at++];  // Reserva espacio para nueva área
                             std::string str =
                                 std::string(element->moduleName) +
@@ -1117,8 +1117,6 @@ void parseBarElement (std::vector<BarElement*> *elements)
                             //a->cmd = str.c_str();
                             a->cmd = (char*)malloc(str.size() + 1);
                             strcpy(a->cmd, str.c_str());
-                            std::cout<< "area cmd = '" << a->cmd << "' y el string es '" << str << "'" << std::endl << std::endl << std::endl;
-
 
                             //button = pair.first;
                         }
@@ -1269,13 +1267,11 @@ void parseBarElement (std::vector<BarElement*> *elements)
                 std::cout << "ucs: " << ucs << ", w: " << w << std::endl;
         }
         element->endX = pos_x;
-        //area_t *a = &area_stack.area[area_stack.at];
+        area_t *a = &area_stack.area[area_stack.at];
         a->end = pos_x;
         std::cout<< "area start: " << a->begin << std::endl;
         std::cout <<"area end: " << a->end << std::endl;
-        std::cout<< "area cmd" << a->cmd << std::endl << std::endl << std::endl;
-
-        std::cout << std::endl << std::endl << std::endl;
+        std::cout<< "area cmd" << a->cmd << std::endl;
 
 
     }
