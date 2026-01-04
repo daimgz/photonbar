@@ -14,14 +14,14 @@ class BarManager;
 
 class Module {
   public:
-    enum EventType {
-      NONE,
-      LEFT_CLICK,
-      MIDDLE_CLICK,
-      RIGHT_CLICK,
-      SCROLL_UP,
-      SCROLL_DOWN
-    };
+    //enum EventType {
+      //NONE,
+      //LEFT_CLICK,
+      //MIDDLE_CLICK,
+      //RIGHT_CLICK,
+      //SCROLL_UP,
+      //SCROLL_DOWN
+    //};
 
     // Colores comunes para todos los módulos
     static constexpr const char* COLOR_FG = "#E0AAFF";    // Lila claro del tema
@@ -29,10 +29,6 @@ class Module {
     static constexpr const char* COLOR_MUTED = "#FF6B6B";   // Rojo para estado muteado
 
     static constexpr const char* COLOR_RED = "#FF6B6B";   // Rojo para estado muteado
-
-    const char *getBuffer() {
-      return buffer.c_str();
-    }
 
     const std::string& getName() const {
       return name;
@@ -79,8 +75,7 @@ class Module {
       auto_update(true),
       update_on_click(true),
       render_on_click(true),
-      name(name),
-      buffer("")
+      name(name)
     {
     };
 
@@ -97,7 +92,7 @@ class Module {
     bool update_on_click;          // Actualizar instantáneamente en clic
     bool render_on_click;           // Forzar renderizado en clic
 
-    std::string name, buffer;
+    std::string name;
 
     // Permitir acceso a BarManager
     friend class BarManager;

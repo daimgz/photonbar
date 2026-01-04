@@ -15,18 +15,18 @@
 #define ALIGN_C 1
 #define ALIGN_R 2
 
-enum class EventType {
+
+typedef std::function<void()> EventFunction;
+
+struct BarElement {
+    // --- Datos de texto (owned) ---
+enum EventType {
     CLICK_LEFT = 1,
     CLICK_MIDDLE = 2,
     CLICK_RIGHT = 3,
     SCROLL_UP = 4,
     SCROLL_DOWN = 5
 };
-
-typedef std::function<void()> EventFunction;
-
-struct BarElement {
-    // --- Datos de texto (owned) ---
     char content[100];
     uint32_t contentLen;
 
@@ -37,7 +37,7 @@ struct BarElement {
 
     // --- Manejo de eventos múltiples ---
     std::map<EventType, EventFunction> events;
-    const std::string moduleName;
+    std::string moduleName;
 
     //TODO: esto debe pasar a ser por modulo que por elemento
     xcb_window_t window;

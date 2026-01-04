@@ -1022,6 +1022,7 @@ void parseBarElement (std::vector<BarElement*> *elements)
     //char *block_end, *ep; // Punteros: actual al texto, fin del bloque, fin de parámetro
     Color tmp;               // Variable temporal para intercambiar colores
 
+                            area_t *a;
     // === INICIALIZACIÓN DE ESTADO DE DIBUJO ===
     pos_x = 0;              // Posición X inicial (comienza desde la izquierda)
     align = ALIGN_L;         // Alineación inicial: izquierda
@@ -1036,7 +1037,7 @@ void parseBarElement (std::vector<BarElement*> *elements)
     for (monitor_t *m = monhead; m != NULL; m = m->next)
         fill_rect(m->pixmap, gc[GC_CLEAR], 0, 0, m->width, bh);
 
-    // === CREACIÓN DEL DRAWABLE XFT ===
+    // === CREACIÓN DEL DRAWABLE XFT ===memset(ptr, '\0', sizeof(data));
     // Xft drawable permite dibujar texto con fuentes TrueType/OpenType
     if (!(xft_draw = XftDrawCreate (dpy, cur_mon->pixmap, visual_ptr , colormap))) {
         fprintf(stderr, "Couldn't create xft drawable\n");
@@ -1100,8 +1101,7 @@ void parseBarElement (std::vector<BarElement*> *elements)
                             //return;  // Error en area_add, terminar parseo
 
                         element->beginX = pos_x;
-                        for (std::pair<EventType, EventFunction> pair : element->events) {
-                            area_t *a;
+                        for (std::pair<BarElement::EventType, EventFunction> pair : element->events) {
                             a = &area_stack.area[area_stack.at++];  // Reserva espacio para nueva área
                             std::string str =
                                 std::string(element->moduleName) +
@@ -1114,7 +1114,12 @@ void parseBarElement (std::vector<BarElement*> *elements)
                             a->align = align;
                             a->button = (uint)pair.first;
                             a->window = cur_mon->window;
-                            a->cmd = (char*)str.c_str();
+                            //a->cmd = str.c_str();
+                            a->cmd = (char*)malloc(str.size() + 1);
+                            strcpy(a->cmd, str.c_str());
+                            std::cout<< "area cmd = '" << a->cmd << "' y el string es '" << str << "'" << std::endl << std::endl << std::endl;
+
+
                             //button = pair.first;
                         }
                         //break;
@@ -1207,8 +1212,8 @@ void parseBarElement (std::vector<BarElement*> *elements)
         //char *
         char *p = element->content;
         for (;;) {
-        if (*p == '\0' || *p == '\n')
-			break;
+            if (*p == '\0' || *p == '\n')
+                break;
         //std::cout << std::endl << std::endl << "dentro del for" << std::endl << std::endl << std::endl;
 
         //std::cout << std::endl << std::endl << p << std::endl << std::endl << std::endl;
@@ -1263,7 +1268,16 @@ void parseBarElement (std::vector<BarElement*> *elements)
             area_shift(cur_mon->window, align, w);  // Ajusta áreas clickeables
                 std::cout << "ucs: " << ucs << ", w: " << w << std::endl;
         }
-        element->beginX = pos_x;
+        element->endX = pos_x;
+        //area_t *a = &area_stack.area[area_stack.at];
+        a->end = pos_x;
+        std::cout<< "area start: " << a->begin << std::endl;
+        std::cout <<"area end: " << a->end << std::endl;
+        std::cout<< "area cmd" << a->cmd << std::endl << std::endl << std::endl;
+
+        std::cout << std::endl << std::endl << std::endl;
+
+
     }
     // === LIMPIEZA FINAL ===
     XftDrawDestroy (xft_draw);  // Libera el drawable XFT

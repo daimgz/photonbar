@@ -21,9 +21,17 @@ class DateTimeModule : public Module {
       label = new BarElement();
       strcpy(label->content, "Testeo :D\0");
       //label->content = (char*)tmp.c_str();
+      label->moduleName = "datetime";
       label->contentLen = 10;
 
         std::cout << std::endl << std::endl << label->content << std::endl << std::endl << std::endl;
+      label->setEvent(BarElement::CLICK_LEFT, [this](){
+          this->show_hour = !show_hour;
+          updateConfiguration();
+          // Forzar actualización inmediata DESPUÉS del clic
+          markForUpdate();
+        }
+      );
       elements = {
       label
       };
@@ -37,7 +45,7 @@ class DateTimeModule : public Module {
       struct tm *tm = localtime(&now);
 
       //buffer = "%{A1:dt_click:}";
-      buffer += fmt::format(
+      std::string buffer = fmt::format(
         "{} {:02d}-{:02d}-{:04d}",
         dias[tm->tm_wday], tm->tm_mday, tm->tm_mon + 1, tm->tm_year + 1900
       );
@@ -51,21 +59,14 @@ class DateTimeModule : public Module {
         );
       }
       //buffer += "%{A}";
+      std::cout << "antes: " << label->content  << std::endl;
       strcpy(label->content, (char*)buffer.c_str());
         std::cout << std::endl << std::endl <<  "se actualizo la fecha" <<label->content << std::endl << std::endl << std::endl;
+      std::cout << "despues: " << label->content  << std::endl;
       label->contentLen = buffer.length();
+
     }
 
-    void event(const char* eventValue) {
-      if (strstr(eventValue, "dt_click")) {
-        show_hour = !show_hour;
-        updateConfiguration();
-        // Forzar actualización inmediata DESPUÉS del clic
-        markForUpdate();
-      }
-    }
-
-  private:
     void updateConfiguration() {
       if (show_hour) {
         // Mostrar hora: actualizar cada segundo

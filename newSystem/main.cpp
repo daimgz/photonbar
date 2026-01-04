@@ -271,6 +271,7 @@ public:
   }
 
    void handle_click_wrapper(const char *input) {
+    std::cout << std::endl << std::endl << "[BarManager] handle_click_wrapper: received '" << input << "'" << std::endl << std::endl <<std::endl;
        bool needs_update = handle_click(input);
 
        // Si el clic requiere actualización, renderizar inmediatamente
@@ -291,7 +292,7 @@ public:
      for (auto& module : modules) {
       for(BarElement* element : module->elements) {
         if (strstr(buf, element->moduleName.c_str())) {
-          for (std::pair<EventType, EventFunction> pair : element->events) {
+          for (std::pair<BarElement::EventType, EventFunction> pair : element->events) {
             std::string eventId = std::to_string((int)pair.first);
             if (strstr(buf, eventId.c_str())) {
               needs_update = module->handleClick(pair.second);
