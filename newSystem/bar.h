@@ -1047,6 +1047,7 @@ void parseBarElement (std::vector<BarElement*> *elements)
     // Procesa cada carácter o bloque de formato del texto
     for (BarElement* element : *elements) {
         std::cout << std::endl << std::endl << "estoy" << element->content << " len " << element->contentLen << std::endl << std::endl << std::endl;
+        element->beginX = pos_x;
         // === CONDICIÓN DE SALIDA ===
         // Termina si encuentra fin de string o salto de línea
         //if (*p == '\0' || *p == '\n')
@@ -1099,26 +1100,28 @@ void parseBarElement (std::vector<BarElement*> *elements)
                         //if (!area_add(p, block_end, &p, cur_mon, pos_x, align, button))
                             //return;  // Error en area_add, terminar parseo
 
-                        element->beginX = pos_x;
-                        for (std::pair<BarElement::EventType, EventFunction> pair : element->events) {
-                            area_t *a;
-                            a = &area_stack.area[area_stack.at++];  // Reserva espacio para nueva área
-                            std::string str =
-                                std::string(element->moduleName) +
-                                "-" +
-                                std::to_string((uint)pair.first);
+                        if (element->eventCharged == false) {
+                            for (std::pair<BarElement::EventType, EventFunction> pair : element->events) {
+                                area_t *a;
+                                a = &area_stack.area[area_stack.at++];  // Reserva espacio para nueva área
+                                std::string str =
+                                    std::string(element->moduleName) +
+                                    "-" +
+                                    std::to_string((uint)pair.first);
 
-                            a->begin = pos_x;
+                                a->begin = pos_x;
 
-                            a->active = true;
-                            a->align = align;
-                            a->button = (uint)pair.first;
-                            a->window = cur_mon->window;
-                            //a->cmd = str.c_str();
-                            a->cmd = (char*)malloc(str.size() + 1);
-                            strcpy(a->cmd, str.c_str());
+                                a->active = true;
+                                a->align = align;
+                                a->button = (uint)pair.first;
+                                a->window = cur_mon->window;
+                                //a->cmd = str.c_str();
+                                a->cmd = (char*)malloc(str.size() + 1);
+                                strcpy(a->cmd, str.c_str());
 
-                            //button = pair.first;
+                                //button = pair.first;
+                            }
+                            element->eventCharged = true;
                         }
                         //break;
 
@@ -1209,70 +1212,121 @@ void parseBarElement (std::vector<BarElement*> *elements)
         //std::cout << std::endl << std::endl << "antes del for" << std::endl << std::endl << std::endl;
         //char *
         char *p = element->content;
-        for (;;) {
-            if (*p == '\0' || *p == '\n')
-                break;
-        //std::cout << std::endl << std::endl << "dentro del for" << std::endl << std::endl << std::endl;
 
-        //std::cout << std::endl << std::endl << p << std::endl << std::endl << std::endl;
+        if (element->dirtyContent) {
+            uint8_t char_width = 0;
+            for (uint8_t i = 0;;i++) {
+                if (*p == '\0' || *p == '\n') {
+                    element->ucsContent[i] = '\0';
+                    element->ucsContentLen = i;
+                    break;
+                }
+            //std::cout << std::endl << std::endl << "dentro del for" << std::endl << std::endl << std::endl;
 
-            uint8_t *utf = (uint8_t *)p;
-            uint32_t ucs; // Código Unicode de 32 bits (soporta emoji/iconos)
+            //std::cout << std::endl << std::endl << p << std::endl << std::endl << std::endl;
 
-            // === DECODIFICACIÓN UTF-8 ===
-            // ASCII (1 byte): 0xxxxxxx
-            if (utf[0] < 0x80) {
-                ucs = utf[0];
-                p  += 1;
+                uint8_t *utf = (uint8_t *)p;
+                uint32_t ucs; // Código Unicode de 32 bits (soporta emoji/iconos)
+
+                // === DECODIFICACIÓN UTF-8 ===
+                // ASCII (1 byte): 0xxxxxxx
+                if (utf[0] < 0x80) {
+                    ucs = utf[0];
+                    p  += 1;
+                }
+                // UTF-8 de 2 bytes: 110xxxxx 10xxxxxx
+                else if ((utf[0] & 0xe0) == 0xc0) {
+                    ucs = (utf[0] & 0x1f) << 6 | (utf[1] & 0x3f);
+                    p += 2;
+                }
+                // UTF-8 de 3 bytes: 1110xxxx 10xxxxxx 10xxxxxx
+                else if ((utf[0] & 0xf0) == 0xe0) {
+                    ucs = (utf[0] & 0xf) << 12 | (utf[1] & 0x3f) << 6 | (utf[2] & 0x3f);
+                    p += 3;
+                }
+                // UTF-8 de 4 bytes: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+                // AQUÍ ES DONDE ESTÁN LOS ICONOS NUEVOS (emoji, símbolos Unicode extendidos)
+                else if ((utf[0] & 0xf8) == 0xf0) {
+                    ucs = (utf[0] & 0x07) << 18 | (utf[1] & 0x3f) << 12 | (utf[2] & 0x3f) << 6 | (utf[3] & 0x3f);
+                    p += 4;
+                }
+                // Secuencias de 5 y 6 bytes son obsoletas en el estándar Unicode actual
+                else {
+                    ucs = utf[0];
+                    p += 1;
+                }
+
+                // === SELECCIÓN DE FUENTE APROPIADA ===
+                cur_font = select_drawable_font(ucs);
+                if (!cur_font)
+                    ucs = '?';
+                    //continue;
+
+                // === CONFIGURACIÓN DE FUENTE EN CONTEXTO GRÁFICO ===
+                //if(cur_font->ptr)  // Solo para fuentes XCB (no Xft)
+                    //xcb_change_gc(c, gc[GC_DRAW] , XCB_GC_FONT, (const uint32_t []) {
+                    //cur_font->ptr
+                //});
+
+                // === DIBUJAR CARÁCTER ===
+                //TODO: ver hacer calculo de width sin dibujar
+                    //
+                //int w = draw_char(cur_mon, cur_font, pos_x, align, ucs);
+                if (cur_font->xft_ft) {
+                    char_width = xft_char_width(ucs, cur_font);
+                } else {
+                    char_width = (cur_font->width_lut) ?
+                        cur_font->width_lut[ucs - cur_font->char_min].character_width:
+                        cur_font->width;
+                }
+
+                element->ucsContent[i] = ucs;
+
+                // === ACTUALIZAR POSICIÓN Y ÁREAS ===
+                pos_x += char_width;  // Avanza posición X según ancho del carácter
+                area_shift(cur_mon->window, align, char_width);  // Ajusta áreas clickeables
+                element->ucsContentCharWidths[i] = char_width;
+                std::cout << "ucs: " << ucs << ", w: " << char_width << std::endl;
             }
-            // UTF-8 de 2 bytes: 110xxxxx 10xxxxxx
-            else if ((utf[0] & 0xe0) == 0xc0) {
-                ucs = (utf[0] & 0x1f) << 6 | (utf[1] & 0x3f);
-                p += 2;
-            }
-            // UTF-8 de 3 bytes: 1110xxxx 10xxxxxx 10xxxxxx
-            else if ((utf[0] & 0xf0) == 0xe0) {
-                ucs = (utf[0] & 0xf) << 12 | (utf[1] & 0x3f) << 6 | (utf[2] & 0x3f);
-                p += 3;
-            }
-            // UTF-8 de 4 bytes: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
-            // AQUÍ ES DONDE ESTÁN LOS ICONOS NUEVOS (emoji, símbolos Unicode extendidos)
-            else if ((utf[0] & 0xf8) == 0xf0) {
-                ucs = (utf[0] & 0x07) << 18 | (utf[1] & 0x3f) << 12 | (utf[2] & 0x3f) << 6 | (utf[3] & 0x3f);
-                p += 4;
-            }
-            // Secuencias de 5 y 6 bytes son obsoletas en el estándar Unicode actual
-            else {
-                ucs = utf[0];
-                p += 1;
-            }
-
-            // === SELECCIÓN DE FUENTE APROPIADA ===
-            cur_font = select_drawable_font(ucs);
-            if (!cur_font)
-                continue;  // Si ninguna fuente tiene el glifo, omitir carácter
-
-            // === CONFIGURACIÓN DE FUENTE EN CONTEXTO GRÁFICO ===
-            if(cur_font->ptr)  // Solo para fuentes XCB (no Xft)
-                xcb_change_gc(c, gc[GC_DRAW] , XCB_GC_FONT, (const uint32_t []) {
-                cur_font->ptr
-            });
-
-            // === DIBUJAR CARÁCTER ===
-            int w = draw_char(cur_mon, cur_font, pos_x, align, ucs);
-
-            // === ACTUALIZAR POSICIÓN Y ÁREAS ===
-            pos_x += w;  // Avanza posición X según ancho del carácter
-            area_shift(cur_mon->window, align, w);  // Ajusta áreas clickeables
-                std::cout << "ucs: " << ucs << ", w: " << w << std::endl;
+            element->widthX = pos_x - element->beginX;
+            std::cout << "element->widthX: " << element->widthX << std::endl;
+            std::cout << "pos_x: " << pos_x << std::endl;
+            element->dirtyContent = false;
         }
-        element->endX = pos_x;
+
         area_t *a = &area_stack.area[area_stack.at];
         a->end = pos_x;
+
+        uint32_t ucs = 0;
+        pos_x = element->beginX;
+        for (int i = 0; i < element->ucsContentLen; i++) {
+            ucs = element->ucsContent[i];
+            cur_font = select_drawable_font(ucs);
+            //if (!cur_font)
+                //continue;  // Si ninguna fuente tiene el glifo, omitir carácter
+
+            // === CONFIGURACIÓN DE FUENTE EN CONTEXTO GRÁFICO ===
+            if(cur_font->ptr) {  // Solo para fuentes XCB (no Xft)
+                xcb_change_gc(c, gc[GC_DRAW] , XCB_GC_FONT,
+                    (const uint32_t []) {
+                        cur_font->ptr
+                    }
+                );
+            }
+
+            // === DIBUJAR CARÁCTER ===
+            draw_char(cur_mon, cur_font, pos_x, align, ucs);
+            pos_x += element->ucsContentCharWidths[i];
+
+            // === ACTUALIZAR POSICIÓN Y ÁREAS ===
+            //pos_x += w;  // Avanza posición X según ancho del carácter
+            //area_shift(cur_mon->window, align, w);  // Ajusta áreas clickeables
+                //std::cout << "ucs: " << ucs << ", w: " << w << std::endl;
+        }
+
         std::cout<< "area start: " << a->begin << std::endl;
         std::cout <<"area end: " << a->end << std::endl;
         std::cout<< "area cmd" << a->cmd << std::endl;
-
 
     }
     // === LIMPIEZA FINAL ===

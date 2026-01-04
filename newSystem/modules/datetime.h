@@ -13,35 +13,36 @@ class DateTimeModule : public Module {
   BarElement baseElement;
 
   public:
-    DateTimeModule():
-      Module("datetime"),
-      dias({"dom", "lun", "mar", "mié", "jue", "vie", "sab"}),
-      show_hour(true)
-    {
-      updateConfiguration();
 
-      baseElement.moduleName = name;
-      baseElement.setEvent(BarElement::CLICK_LEFT, [this](){
-          this->show_hour = !show_hour;
-          updateConfiguration();
-          // Forzar actualización inmediata DESPUÉS del clic
-          markForUpdate();
-        }
-      );
+  DateTimeModule():
+    Module("datetime"),
+    dias({"dom", "lun", "mar", "mié", "jue", "vie", "sab"}),
+    show_hour(true)
+  {
+    updateConfiguration();
 
-      elements.push_back(&baseElement);
+    baseElement.moduleName = name;
+    baseElement.setEvent(
+      BarElement::CLICK_LEFT,
+      [this](){
+        this->show_hour = !show_hour;
+        updateConfiguration();
+        // Forzar actualización inmediata DESPUÉS del clic
+        markForUpdate();
+      }
+    );
+
+    elements.push_back(&baseElement);
   }
   ~DateTimeModule() {
   }
 
   void update() {
-    time_t now = time(NULL);
+        time_t now = time(NULL);
         struct tm *tm = localtime(&now);
 
-        int len;
-
         if (show_hour) {
-            len = snprintf(
+            baseElement.contentLen = snprintf(
                 baseElement.content,
                 CONTENT_MAX_LEN,
                 "%s %02d-%02d-%04d %02d:%02d:%02d",
@@ -54,7 +55,7 @@ class DateTimeModule : public Module {
                 tm->tm_sec
             );
         } else {
-            len = snprintf(
+            baseElement.contentLen = snprintf(
                 baseElement.content,
                 CONTENT_MAX_LEN,
                 "%s %02d-%02d-%04d",
@@ -64,8 +65,7 @@ class DateTimeModule : public Module {
                 tm->tm_year + 1900
             );
         }
-
-        baseElement.contentLen = (size_t)len;
+        baseElement.dirtyContent = true;
     }
 
     void updateConfiguration() {
