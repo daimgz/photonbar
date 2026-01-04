@@ -33,6 +33,7 @@ struct BarElement {
     uint16_t beginX;
     uint16_t widthX;
 
+    //xcb_window_t window;
   //public:
     //const char *getContent() const { return content; }
     //uint8_t getContentLen() const { return contentLen; }
@@ -85,6 +86,7 @@ struct BarElement {
         events[type] = handler;
     }
     bool eventCharged;
+
 
     // Constructor por defecto con valores inicializados
     BarElement() : content(""), dirtyContent(false), contentLen(0),

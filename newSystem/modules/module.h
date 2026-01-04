@@ -36,12 +36,13 @@ class Module {
     virtual bool initialize() { return true; } // Default implementation for modules that don't need initialization
 
     // Método para manejar clics (puede ser sobrescrito)
-    virtual bool handleClick(EventFunction func) {
+    virtual void handleClick(EventFunction func) {
       func();
-      if (update_on_click) {
-          update();
-      }
-      return render_on_click;
+      this->renderFunction();
+      //if (update_on_click) {
+          //update();
+      //}
+      //return render_on_click;
     }
 
     // Métodos de control de actualización
@@ -55,12 +56,17 @@ class Module {
       return (now - last_update) >= seconds_per_update;
     }
 
+    void setRenderFunction(std::function<void()> renderFunction) {
+      this->renderFunction = renderFunction;
+    }
+
+
+  protected:
     void markForUpdate() { needs_update = true; }
     void setAutoUpdate(bool enabled) { auto_update = enabled; }
     void setUpdatePerIteration(bool enabled) { update_per_iteration = enabled; }
     void setSecondsPerUpdate(int seconds) { seconds_per_update = seconds; }
 
-  protected:
     Module(std::string name):
       update_per_iteration(true),
       seconds_per_update(1),
@@ -72,7 +78,7 @@ class Module {
       name(name)
     {
     };
-
+    std::function<void()> renderFunction;
     // Configuración de actualización
     bool update_per_iteration;     // ¿Actualizar en cada ciclo?
     int seconds_per_update;        // Intervalo en segundos

@@ -90,6 +90,7 @@ public:
 
     // Encontrar y guardar referencia al módulo workspace
     for (auto* module : modules) {
+        module->setRenderFunction([this]() { render_bar(); });
         if (module->getName() == "workspace") {
             workspace = static_cast<WorkspaceModule*>(module);
             break;
@@ -105,9 +106,7 @@ public:
       COLOR_BG,
       this->isTop,
       {std::string(FONT_TEXT), std::string(FONT_ICON)},
-      [this](const char* input) {
-        handle_click_wrapper(input);
-      }
+      elements
     );
     xcb_fd = bar->lemonbar_get_xcb_fd();
     std::cout << std::endl << std::endl << "main.cpp constructor estoy '" << elements[0]->content << "' len " << elements[0]->contentLen << std::endl << std::endl << std::endl;
@@ -270,46 +269,11 @@ public:
       }
   }
 
-   void handle_click_wrapper(const char *input) {
-    //std::cout << std::endl << std::endl << "[BarManager] handle_click_wrapper: received '" << input << "'" << std::endl << std::endl <<std::endl;
-       bool needs_update = handle_click(input);
-
-       // Si el clic requiere actualización, renderizar inmediatamente
-       if (needs_update) {
-           render_bar();
-       }
-   }
-
-  bool handle_click(const char *input) {
-     // Make a local copy as callers may pass internal pointers
-     char buf[256];
-     snprintf(buf, sizeof(buf), "%s", input ? input : "");
-
-     fprintf(stderr, "[BarManager] handle_click: received '%s'\n", buf);
-
-     // Llamar handleClick en todos los módulos usando el array
-     bool needs_update = false;
-     for (auto& module : modules) {
-      for(BarElement* element : module->elements) {
-        if (strstr(buf, element->moduleName.c_str())) {
-          for (std::pair<BarElement::EventType, EventFunction> pair : element->events) {
-            std::string eventId = std::to_string((int)pair.first);
-            if (strstr(buf, eventId.c_str())) {
-              needs_update = module->handleClick(pair.second);
-            }
-          }
-        }
-      }
-     }
-
-     return needs_update;
-   }
-
   void render_bar() {
       if (elements.empty())
         return;
       // Los módulos ya se actualizaron a través del scheduler
-      char buf[8000];
+      //char buf[8000];
       static int renderCount = 0;
 
       //// Construir buffer
@@ -346,7 +310,7 @@ public:
       //int n = snprintf(buf, sizeof(buf), "%s", output.c_str());
       //if (n > 0) {
           renderCount++;
-          fprintf(stderr, "[BarManager] Rendering bar with content: %s\n num: %i", buf, renderCount);
+          fprintf(stderr, "[BarManager] Rendering bar with content, num: %i", renderCount);
           //std::cout << std::endl << std::endl << "main.cpp estoy" << elements[0]->content << " len " << elements[0]->contentLen << std::endl << std::endl << std::endl;
           bar->lemonbar_feed(&elements);
       //}

@@ -19,16 +19,23 @@ class DateTimeModule : public Module {
     dias({"dom", "lun", "mar", "mié", "jue", "vie", "sab"}),
     show_hour(true)
   {
-    updateConfiguration();
 
     baseElement.moduleName = name;
     baseElement.setEvent(
       BarElement::CLICK_LEFT,
       [this](){
         this->show_hour = !show_hour;
-        updateConfiguration();
-        // Forzar actualización inmediata DESPUÉS del clic
-        markForUpdate();
+
+        if (this->show_hour) {
+          // Mostrar hora: actualizar cada segundo
+          this->setUpdatePerIteration(true);
+        } else {
+          // Solo fecha: actualizar cada minuto
+          this->setUpdatePerIteration(false);
+          this->setSecondsPerUpdate(60);
+        }
+        update();
+        renderFunction();
       }
     );
 
@@ -66,17 +73,6 @@ class DateTimeModule : public Module {
             );
         }
         baseElement.dirtyContent = true;
-    }
-
-    void updateConfiguration() {
-      if (show_hour) {
-        // Mostrar hora: actualizar cada segundo
-        setUpdatePerIteration(true);
-      } else {
-        // Solo fecha: actualizar cada minuto
-        setUpdatePerIteration(false);
-        setSecondsPerUpdate(60);
-      }
     }
 
     std::array<const char*, 7> dias;
