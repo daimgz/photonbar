@@ -104,6 +104,7 @@ public:
     bar = new Bar(
       name,
       COLOR_BG,
+      COLOR_FG,
       this->isTop,
       {std::string(FONT_TEXT), std::string(FONT_ICON)},
       elements

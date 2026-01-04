@@ -77,21 +77,21 @@ typedef struct monitor_t {
     struct monitor_t *prev, *next;
 } monitor_t;
 
-typedef struct area_t {
-    unsigned int begin:16;
-    unsigned int end:16;
-    bool active:1;
-    int align:3;
-    unsigned int button:3;
-    xcb_window_t window;
-    char *cmd;
-} area_t;
+//typedef struct area_t {
+    //unsigned int begin:16;
+    //unsigned int end:16;
+    //bool active:1;
+    //int align:3;
+    //unsigned int button:3;
+    //xcb_window_t window;
+    //char *cmd;
+//} area_t;
 
 
-typedef struct area_stack_t {
-    int at, max;
-    area_t *area;
-} area_stack_t;
+//typedef struct area_stack_t {
+    //int at, max;
+    //area_t *area;
+//} area_stack_t;
 
 enum {
     ATTR_OVERL = (1<<0),
@@ -158,7 +158,7 @@ Color
     defaultBackgroundColor,
     defaultUnderlineColor;
 
-area_stack_t area_stack;
+//area_stack_t area_stack;
 
 std::function<void(const char *cmd)> click_cb;
 
@@ -172,6 +172,7 @@ public:
     Bar(
         const char *name,
         const char *_backgroundColor,
+        const char *_foregroundColor,
         const bool topBar,
         const std::vector<std::string> &fonts,
         const std::vector<BarElement*> &barElements
@@ -184,10 +185,10 @@ public:
             font_load(font.c_str());
         }
         //setClickHandler(cb);
-
+//Color::parse_color(hex, NULL, (Color)0x00000000U)
         // Ensure sensible default colors for in-process use (opaque)
-        defaultBackgroundColor = backgroundColor = Color(0xff000000U);
-        defaultForegroundColor = foregroundColor = Color(0xffffffffU);
+        defaultBackgroundColor = backgroundColor = Color::parse_color(_backgroundColor, NULL, (Color)0x00000000U);
+        defaultForegroundColor = foregroundColor = Color::parse_color(_foregroundColor, NULL, (Color)0x11111111U);
         defaultUnderlineColor = underlineColor = foregroundColor;
 
         // Connect to X and initialize
@@ -198,7 +199,7 @@ public:
         init((char *)name, (char *)name);
         fprintf(stderr, "[lemonbar] lemonbar_init_lib: init complete\n");
 
-        setBackground(_backgroundColor);
+        //setBackground(_backgroundColor);
     }
 
 void setClickHandler(std::function<void(const char *cmd)> cb) {
@@ -466,282 +467,13 @@ area_shift (xcb_window_t win, const int align, int delta)
     if (align == ALIGN_C)
         delta /= 2;
 
-    for (int i = 0; i < area_stack.at; i++) {
-        area_t *a = &area_stack.area[i];
-        if (a->window == win && a->align == align && !a->active) {
-            a->begin -= delta;
-            a->end -= delta;
+    for (BarElement* e : elements) {
+        if (e->window == win && e->alignment == align && !e->isActive) {
+            e->beginX -= delta;
+            e->widthX -= delta;
         }
     }
 }
-
-bool
-area_add_element (char *str, const char *optend, char **end, monitor_t *mon, const int x, const int align, const int button)
-{
-    // === PARÁMETROS DE LA FUNCIÓN ===
-    // char *str:           Puntero al texto del comando (puede ser NULL para cierre)
-    //                       - Si *str == ':', es apertura de área %{A:comando:}
-    //                       - Si *str != ':', es cierre de área %{A}
-    // const char *optend:  Fin del bloque de formato %{...}
-    //                       - Usado para validar que el comando esté dentro del bloque válido
-    // char **end:         Puntero de salida para el parser
-    //                       - Se actualiza para que el parser continúe desde el punto correcto
-    // monitor_t *mon:      Monitor/ventana donde se está dibujando el área
-    //                       - Contiene información de geometría (ancho, ID de ventana)
-    // int x:              Posición X actual donde comienza el área
-    //                       - Coordenada inicial del área clicable
-    // int align:           Alineación del texto (ALIGN_L/C/R)
-    //                       - Afecta cómo se calculan las coordenadas finales
-    // int button:           Botón del mouse que activa el área (1-5)
-    //                       - Mapea a XCB_BUTTON_INDEX_1-5
-
-    // === VARIABLES INTERNAS ===
-    int i;                    // Índice para iterar sobre el stack de áreas
-    char *trail;              // Puntero auxiliar para encontrar ':' de cierre
-    area_t *a;                // Puntero al área actual del stack que se procesa
-
-    // === CASO 1: DETECCIÓN DE ETIQUETA DE CIERRE %{A} ===
-    // Si el primer carácter NO es ':', significa que estamos cerrando un área
-    // Formato: %{A} (sin comando) o %{A:comando:texto%{A}
-    if (*str != ':') {
-        *end = str;  // Establece el puntero de fin para que el parser continúe desde aquí
-
-        // === BÚSQUEDA DEL ÁREA ACTIVA MÁS RECIENTE ===
-        // Itera desde el final del stack hacia atrás para encontrar el último área
-        // que aún está activa (active = true) y necesita ser cerrada
-        for (i = area_stack.at - 1; i >= 0 && !area_stack.area[i].active; i--)
-            ;  // Bucle vacío, solo busca el índice correcto
-        a = &area_stack.area[i];  // Obtiene referencia al área encontrada
-
-        // === VALIDACIONES DE SEGURIDAD ===
-        // Verifica que el área encontrada sea válida:
-        // 1. Debe tener un comando asignado (no debe ser nulo)
-        // 2. Debe tener la misma alineación que el texto actual
-        // 3. Debe pertenecer a la misma ventana/monitor
-        if (!a->cmd || a->align != align || a->window != mon->window) {
-            fprintf(stderr, "Invalid geometry for the clickable area\n");
-            return false;  // Error de geometría, probablemente anidamiento incorrecto
-        }
-
-        // === CÁLCULO DEL TAMAÑO DEL ÁREA ===
-        // El tamaño es la diferencia entre la posición actual (x) y el inicio del área
-        const int size = x - a->begin;
-
-        // === AJUSTE DE COORDENADAS SEGÚN ALINEACIÓN ===
-        //TODO: habilitar todo el tema de la alineacion
-        switch (align) {
-            case ALIGN_L:
-                // Alineación izquierda: el área termina en la posición actual
-                a->end = x;
-                break;
-            case ALIGN_C:
-                // Alineación centro: cálculo complejo para centrar el área
-                // La fórmula considera tanto el offset inicial como el tamaño total
-                a->begin = mon->width / 2 - size / 2 + a->begin / 2;
-                a->end = a->begin + size;  // El fin es el inicio más el tamaño
-                break;
-            case ALIGN_R:
-                // Alineación derecha: el área ocupa desde width-size hasta el final
-                // Esto asegura que el texto alineado a la derecha sea clicable
-                a->begin = mon->width - size;
-                a->end = mon->width;
-                break;
-        }
-
-        a->active = false;  // Marca el área como cerrada/inactiva
-        return true;        // Área cerrada exitosamente
-    }
-
-    // === CASO 2: CREACIÓN DE NUEVA ÁREA %{A:comando:} ===
-
-    // === VERIFICACIÓN DE CAPACIDAD DEL STACK ===
-    // Verifica si hay espacio para agregar una nueva área al stack
-    if (area_stack.at + 1 > area_stack.max) {
-        fprintf(stderr, "Cannot add any more clickable areas (used %d/%d)\n",
-                area_stack.at, area_stack.max);
-        return false;  // No hay suficiente espacio en el stack
-    }
-    a = &area_stack.area[area_stack.at++];  // Reserva espacio para nueva área
-
-    // === BÚSQUEDA DEL DELIMITADOR DE CIERRE ':' ===
-    // Avanza str para saltar el ':' inicial y busca el ':' de cierre
-    // El bucle maneja casos donde ':' está escapado con '\:'
-    for (trail = strchr(++str, ':'); trail && trail[-1] == '\\'; trail = strchr(trail + 1, ':'))
-        ;  // Continúa buscando hasta encontrar ':' no escapado
-
-    // === VALIDACIÓN DEL COMANDO ===
-    // Verifica que:
-    // 1. Se encontró el ':' de cierre
-    // 2. Hay texto entre los ':' (comando no vacío)
-    // 3. El ':' de cierre está dentro del bloque de formato válido
-    if (!trail || str == trail || trail > optend) {
-        *end = str;  // Establece puntero de fin para continuar el parseo
-        return false;  // Comando inválido o malformado
-    }
-
-    // === EXTRACCIÓN DEL COMANDO ===
-
-    // === SANITIZACIÓN DEL COMANDO (UNESCAPE) ===
-    // Recorre el comando buscando secuencias de escape '\:' y las convierte a ':'
-    // Esto permite que los comandos contengan dos puntos literales
-    for (char *needle = str; *needle; needle++) {
-        int delta = trail - &needle[1];  // Calcula cuánto mover hacia la izquierda
-        if (needle[0] == '\\' && needle[1] == ':') {
-            // Mueve el resto del string una posición hacia la izquierda
-            memmove(&needle[0], &needle[1], delta);
-            needle[delta] = 0;  // Limpia el carácter final sobrante
-        }
-    }
-
-    // === CONFIGURACIÓN DEL NUEVO ÁREA ===
-    // Este es un puntero al buffer de string principal (no se necesita free)
-    a->cmd = str;           // Comando a ejecutar cuando se haga clic
-    a->active = true;       // Marca como área abierta esperando cierre
-    a->align = align;       // Guarda la alineación para cálculos posteriores
-    a->begin = x;           // Posición inicial donde comienza el área clicable
-    a->window = mon->window; // Ventana/monitor al que pertenece el área
-    a->button = button;     // Botón del mouse que activará esta área
-
-    // === ACTUALIZACIÓN DEL PUNTERO DE CONTINUACIÓN ===
-    // Establece 'end' para que el parser continúe después del ':' de cierre
-    *end = trail + 1;
-
-    return true;  // Nueva área creada exitosamente
-}
-//bool
-//area_add (char *str, const char *optend, char **end, monitor_t *mon, const int x, const int align, const int button)
-//{
-    //// === PARÁMETROS DE LA FUNCIÓN ===
-    //// char *str:           Puntero al texto del comando (puede ser NULL para cierre)
-    ////                       - Si *str == ':', es apertura de área %{A:comando:}
-    ////                       - Si *str != ':', es cierre de área %{A}
-    //// const char *optend:  Fin del bloque de formato %{...}
-    ////                       - Usado para validar que el comando esté dentro del bloque válido
-    //// char **end:         Puntero de salida para el parser
-    ////                       - Se actualiza para que el parser continúe desde el punto correcto
-    //// monitor_t *mon:      Monitor/ventana donde se está dibujando el área
-    ////                       - Contiene información de geometría (ancho, ID de ventana)
-    //// int x:              Posición X actual donde comienza el área
-    ////                       - Coordenada inicial del área clicable
-    //// int align:           Alineación del texto (ALIGN_L/C/R)
-    ////                       - Afecta cómo se calculan las coordenadas finales
-    //// int button:           Botón del mouse que activa el área (1-5)
-    ////                       - Mapea a XCB_BUTTON_INDEX_1-5
-
-    //// === VARIABLES INTERNAS ===
-    //int i;                    // Índice para iterar sobre el stack de áreas
-    //char *trail;              // Puntero auxiliar para encontrar ':' de cierre
-    //area_t *a;                // Puntero al área actual del stack que se procesa
-
-    //// === CASO 1: DETECCIÓN DE ETIQUETA DE CIERRE %{A} ===
-    //// Si el primer carácter NO es ':', significa que estamos cerrando un área
-    //// Formato: %{A} (sin comando) o %{A:comando:texto%{A}
-    //if (*str != ':') {
-        //*end = str;  // Establece el puntero de fin para que el parser continúe desde aquí
-
-        //// === BÚSQUEDA DEL ÁREA ACTIVA MÁS RECIENTE ===
-        //// Itera desde el final del stack hacia atrás para encontrar el último área
-        //// que aún está activa (active = true) y necesita ser cerrada
-        //for (i = area_stack.at - 1; i >= 0 && !area_stack.area[i].active; i--)
-            //;  // Bucle vacío, solo busca el índice correcto
-        //a = &area_stack.area[i];  // Obtiene referencia al área encontrada
-
-        //// === VALIDACIONES DE SEGURIDAD ===
-        //// Verifica que el área encontrada sea válida:
-        //// 1. Debe tener un comando asignado (no debe ser nulo)
-        //// 2. Debe tener la misma alineación que el texto actual
-        //// 3. Debe pertenecer a la misma ventana/monitor
-        //if (!a->cmd || a->align != align || a->window != mon->window) {
-            //fprintf(stderr, "Invalid geometry for the clickable area\n");
-            //return false;  // Error de geometría, probablemente anidamiento incorrecto
-        //}
-
-        //// === CÁLCULO DEL TAMAÑO DEL ÁREA ===
-        //// El tamaño es la diferencia entre la posición actual (x) y el inicio del área
-        //const int size = x - a->begin;
-
-        //// === AJUSTE DE COORDENADAS SEGÚN ALINEACIÓN ===
-        //switch (align) {
-            //case ALIGN_L:
-                //// Alineación izquierda: el área termina en la posición actual
-                //a->end = x;
-                //break;
-            //case ALIGN_C:
-                //// Alineación centro: cálculo complejo para centrar el área
-                //// La fórmula considera tanto el offset inicial como el tamaño total
-                //a->begin = mon->width / 2 - size / 2 + a->begin / 2;
-                //a->end = a->begin + size;  // El fin es el inicio más el tamaño
-                //break;
-            //case ALIGN_R:
-                //// Alineación derecha: el área ocupa desde width-size hasta el final
-                //// Esto asegura que el texto alineado a la derecha sea clicable
-                //a->begin = mon->width - size;
-                //a->end = mon->width;
-                //break;
-        //}
-
-        //a->active = false;  // Marca el área como cerrada/inactiva
-        //return true;        // Área cerrada exitosamente
-    //}
-
-    //// === CASO 2: CREACIÓN DE NUEVA ÁREA %{A:comando:} ===
-
-    //*trail = '\0';  // Reemplaza el ':' de cierre con '\0' para terminar el string del comando
-    //// === VERIFICACIÓN DE CAPACIDAD DEL STACK ===
-    //// Verifica si hay espacio para agregar una nueva área al stack
-    //if (area_stack.at + 1 > area_stack.max) {
-        //fprintf(stderr, "Cannot add any more clickable areas (used %d/%d)\n",
-                //area_stack.at, area_stack.max);
-        //return false;  // No hay suficiente espacio en el stack
-    //}
-    //a = &area_stack.area[area_stack.at++];  // Reserva espacio para nueva área
-
-    //// === BÚSQUEDA DEL DELIMITADOR DE CIERRE ':' ===
-    //// Avanza str para saltar el ':' inicial y busca el ':' de cierre
-    //// El bucle maneja casos donde ':' está escapado con '\:'
-    //for (trail = strchr(++str, ':'); trail && trail[-1] == '\\'; trail = strchr(trail + 1, ':'))
-        //;  // Continúa buscando hasta encontrar ':' no escapado
-
-    //// === VALIDACIÓN DEL COMANDO ===
-    //// Verifica que:
-    //// 1. Se encontró el ':' de cierre
-    //// 2. Hay texto entre los ':' (comando no vacío)
-    //// 3. El ':' de cierre está dentro del bloque de formato válido
-    //if (!trail || str == trail || trail > optend) {
-        //*end = str;  // Establece puntero de fin para continuar el parseo
-        //return false;  // Comando inválido o malformado
-    //}
-
-    //// === EXTRACCIÓN DEL COMANDO ===
-    //*trail = '\0';  // Reemplaza el ':' de cierre con '\0' para terminar el string del comando
-
-    //// === SANITIZACIÓN DEL COMANDO (UNESCAPE) ===
-    //// Recorre el comando buscando secuencias de escape '\:' y las convierte a ':'
-    //// Esto permite que los comandos contengan dos puntos literales
-    //for (char *needle = str; *needle; needle++) {
-        //int delta = trail - &needle[1];  // Calcula cuánto mover hacia la izquierda
-        //if (needle[0] == '\\' && needle[1] == ':') {
-            //// Mueve el resto del string una posición hacia la izquierda
-            //memmove(&needle[0], &needle[1], delta);
-            //needle[delta] = 0;  // Limpia el carácter final sobrante
-        //}
-    //}
-
-    //// === CONFIGURACIÓN DEL NUEVO ÁREA ===
-    //// Este es un puntero al buffer de string principal (no se necesita free)
-    //a->cmd = str;           // Comando a ejecutar cuando se haga clic
-    //a->active = true;       // Marca como área abierta esperando cierre
-    //a->align = align;       // Guarda la alineación para cálculos posteriores
-    //a->begin = x;           // Posición inicial donde comienza el área clicable
-    //a->window = mon->window; // Ventana/monitor al que pertenece el área
-    //a->button = button;     // Botón del mouse que activará esta área
-
-    //// === ACTUALIZACIÓN DEL PUNTERO DE CONTINUACIÓN ===
-    //// Establece 'end' para que el parser continúe después del ':' de cierre
-    //*end = trail + 1;
-
-    //return true;  // Nueva área creada exitosamente
-//}
 
 bool
 font_has_glyph (font_t *font, const uint32_t c)
@@ -785,222 +517,6 @@ select_drawable_font (const uint32_t c)
 }
 
 
-//void
-//parse (char *text)
-//{
-    //// === VARIABLES LOCALES DE ESTADO ===
-    //font_t *cur_font;        // Fuente actual seleccionada para dibujar
-    //monitor_t *cur_mon;      // Monitor actual donde se está dibujando
-    //int pos_x, align, button; // Posición X actual, alineación, botón del mouse
-    //char *p = text, *block_end, *ep; // Punteros: actual al texto, fin del bloque, fin de parámetro
-    //Color tmp;               // Variable temporal para intercambiar colores
-
-    //// === INICIALIZACIÓN DE ESTADO DE DIBUJO ===
-    //pos_x = 0;              // Posición X inicial (comienza desde la izquierda)
-    //align = ALIGN_L;         // Alineación inicial: izquierda
-    //cur_mon = monhead;      // Comenzar con el primer monitor
-
-    //// === REINICIALIZACIÓN DEL STACK DE ÁREAS CLICKEABLES ===
-    //// Reinicia el contador de áreas para limpiar áreas anteriores
-    //area_stack.at = 0;
-
-    //// === LIMPIEZA DE TODOS LOS MONITORES ===
-    //// Limpia el pixmap de cada monitor con el color de fondo
-    //for (monitor_t *m = monhead; m != NULL; m = m->next)
-        //fill_rect(m->pixmap, gc[GC_CLEAR], 0, 0, m->width, bh);
-
-    //// === CREACIÓN DEL DRAWABLE XFT ===
-    //// Xft drawable permite dibujar texto con fuentes TrueType/OpenType
-    //if (!(xft_draw = XftDrawCreate (dpy, cur_mon->pixmap, visual_ptr , colormap))) {
-        //fprintf(stderr, "Couldn't create xft drawable\n");
-    //}
-
-    //// === BUCLE PRINCIPAL DE PARSEO ===
-    //// Procesa cada carácter o bloque de formato del texto
-    //for (;;) {
-        //// === CONDICIÓN DE SALIDA ===
-        //// Termina si encuentra fin de string o salto de línea
-        //if (*p == '\0' || *p == '\n')
-			//break;
-
-        //// === DETECCIÓN DE BLOQUE DE FORMATO %{...} ===
-        //// Si encuentra '%' seguido de '{', es un comando de formato
-        //if (p[0] == '%' && p[1] == '{' && (block_end = strchr(p++, '}'))) {
-            //p++;  // Salta el '{'
-
-            //// === PROCESAMIENTO DE COMANDOS DENTRO DEL BLOQUE ===
-            //// Itera sobre cada comando dentro de %{...}
-            //while (p < block_end) {
-                //int w;  // Variable para anchos temporales
-                //while (isspace(*p))
-                    //p++;  // Omite espacios en blanco
-
-                //// === SWITCH DE COMANDOS DE FORMATO ===
-                //// Cada carácter dentro de %{...} es un comando diferente
-                //switch (*p++) {
-                    //// === COMANDOS DE ATRIBUTOS DE TEXTO ===
-                    //case '+': set_attribute('+', *p++); break;  // activar atributo (subrayado/sobrelineado)
-                    //case '-': set_attribute('-', *p++); break;  // Desactivar atributo
-                    //case '!': set_attribute('!', *p++); break;  // Alternar atributo
-
-                    //// === COMANDO DE INVERSIÓN DE COLORES ===
-                    //case 'R':
-                              //tmp = foregroundColor;           // Intercambia colores
-                              //foregroundColor = backgroundColor;
-                              //backgroundColor = tmp;
-                              //update_gc();                    // Actualiza contextos gráficos
-                              //break;
-
-                    //// === COMANDOS DE ALINEACIÓN ===
-                    //case 'l': pos_x = 0; align = ALIGN_L; break;  // Alinear izquierda
-                    //case 'c': pos_x = 0; align = ALIGN_C; break;  // Alinear centro
-                    //case 'r': pos_x = 0; align = ALIGN_R; break;  // Alinear derecha
-
-                    //// === COMANDO DE ÁREA CLICKEABLE ===
-                    //case 'A':
-                        //button = XCB_BUTTON_INDEX_1;  // Por defecto: botón izquierdo
-                        //// Permite especificar botón 1-5 después de 'A'
-                        //if (isdigit(*p) && (*p > '0' && *p < '6'))
-                            //button = *p++ - '0';      // Convierte '1'-'5' a 1-5
-                        //// Llama a area_add para crear área clicable
-                        //if (!area_add(p, block_end, &p, cur_mon, pos_x, align, button))
-                            //return;  // Error en area_add, terminar parseo
-                        //break;
-
-                    //// === COMANDOS DE COLOR ===
-                    //case 'B': backgroundColor = Color::parse_color(p, &p, defaultBackgroundColor); update_gc(); break;
-                    //case 'F': foregroundColor = Color::parse_color(p, &p, defaultForegroundColor); update_gc(); break;
-                    //case 'U': underlineColor = Color::parse_color(p, &p, defaultUnderlineColor); update_gc(); break;
-
-                    //// === COMANDO DE SELECCIÓN DE MONITOR ===
-                    //case 'S':
-                              //// S+: siguiente monitor
-                              //if (*p == '+' && cur_mon->next)
-                              //{ cur_mon = cur_mon->next; }
-                              //// S-: monitor anterior
-                              //else if (*p == '-' && cur_mon->prev)
-                              //{ cur_mon = cur_mon->prev; }
-                              //// Sf: primer monitor (first)
-                              //else if (*p == 'f')
-                              //{ cur_mon = monhead; }
-                              //// Sl: último monitor (last)
-                              //else if (*p == 'l')
-                              //{ cur_mon = montail ? montail : monhead; }
-                              //// S0-S9: monitor por índice
-                              //else if (isdigit(*p))
-                              //{ cur_mon = monhead;
-                                //for (int i = 0; i != *p-'0' && cur_mon->next; i++)
-                                    //cur_mon = cur_mon->next;
-                              //}
-                              //else
-                              //{ p++; continue; }  // Comando inválido, omitir
-							  //XftDrawDestroy (xft_draw);  // Destruye drawable antiguo
-							  //if (!(xft_draw = XftDrawCreate (dpy, cur_mon->pixmap, visual_ptr , colormap ))) {
-								//fprintf(stderr, "Couldn't create xft drawable\n");
-//}
-
-                              //p++;  // Salta el caracter de selección
-                              //pos_x = 0;  // Reinicia posición X para nuevo monitor
-                              //break;
-
-                    //// === COMANDO DE DESPLAZAMIENTO/OFFSET ===
-                    //case 'O':
-                              //errno = 0;  // Limpia errno para detección de errores
-                              //w = (int) strtoul(p, &p, 10);  // Parsea número de píxeles
-                              //if (errno)
-                                  //continue;  // Error en conversión, omitir
-
-                              //// Dibuja rectángulo con background y desplaza contenido
-                              //draw_shift(cur_mon, pos_x, align, w);
-
-                              //pos_x += w;  // Actualiza posición X
-                              //area_shift(cur_mon->window, align, w);  // Ajusta áreas clickeables
-                              //break;
-
-                    //// === COMANDO DE SELECCIÓN DE FUENTE ===
-                    //case 'T':
-                              //if (*p == '-') { //T-: volver a selección automática
-                                  //font_index = -1;
-                                  //p++;
-                                  //break;
-                              //} else if (isdigit(*p)) {
-                                  //font_index = (int)strtoul(p, &ep, 10);
-                                  //// Valida que el índice esté en rango (1, font_count]
-                                  //if (!font_index || font_index > font_count)
-                                  //font_index = -1;  // Fuera de rango, usar automático
-                                  //p = ep;  // Avanza puntero al final del número
-                                  //break;
-                              //} else {
-                                  //fprintf(stderr, "Invalid font slot \"%c\"\n", *p++); //Swallow the token
-                                  //break;
-                              //}
-
-                    //// === MANEJO DE COMANDOS DESCONOCIDOS ===
-                    //// En caso de error, continúa después del '}'
-                    //default:
-                        //p = block_end;  // Salta al final del bloque
-                //}
-            //}
-            //// === CONSUME EL '}' DE CIERRE ===
-            //p++;  // Salta el carácter '}' que cierra el bloque de formato
-        //} else {
-            //// === PROCESAMIENTO DE TEXTO NORMAL (UTF-8) ===
-            //// Convierte UTF-8 a UCS-4 para procesamiento interno
-            //uint8_t *utf = (uint8_t *)p;
-            //uint32_t ucs; // Código Unicode de 32 bits (soporta emoji/iconos)
-
-            //// === DECODIFICACIÓN UTF-8 ===
-            //// ASCII (1 byte): 0xxxxxxx
-            //if (utf[0] < 0x80) {
-                //ucs = utf[0];
-                //p  += 1;
-            //}
-            //// UTF-8 de 2 bytes: 110xxxxx 10xxxxxx
-            //else if ((utf[0] & 0xe0) == 0xc0) {
-                //ucs = (utf[0] & 0x1f) << 6 | (utf[1] & 0x3f);
-                //p += 2;
-            //}
-            //// UTF-8 de 3 bytes: 1110xxxx 10xxxxxx 10xxxxxx
-            //else if ((utf[0] & 0xf0) == 0xe0) {
-                //ucs = (utf[0] & 0xf) << 12 | (utf[1] & 0x3f) << 6 | (utf[2] & 0x3f);
-                //p += 3;
-            //}
-            //// UTF-8 de 4 bytes: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
-            //// AQUÍ ES DONDE ESTÁN LOS ICONOS NUEVOS (emoji, símbolos Unicode extendidos)
-            //else if ((utf[0] & 0xf8) == 0xf0) {
-                //ucs = (utf[0] & 0x07) << 18 | (utf[1] & 0x3f) << 12 | (utf[2] & 0x3f) << 6 | (utf[3] & 0x3f);
-                //p += 4;
-            //}
-            //// Secuencias de 5 y 6 bytes son obsoletas en el estándar Unicode actual
-            //else {
-                //ucs = utf[0];
-                //p += 1;
-            //}
-
-            //// === SELECCIÓN DE FUENTE APROPIADA ===
-            //cur_font = select_drawable_font(ucs);
-            //if (!cur_font)
-                //continue;  // Si ninguna fuente tiene el glifo, omitir carácter
-
-            //// === CONFIGURACIÓN DE FUENTE EN CONTEXTO GRÁFICO ===
-            //if(cur_font->ptr)  // Solo para fuentes XCB (no Xft)
-                //xcb_change_gc(c, gc[GC_DRAW] , XCB_GC_FONT, (const uint32_t []) {
-                //cur_font->ptr
-            //});
-
-            //// === DIBUJAR CARÁCTER ===
-            //int w = draw_char(cur_mon, cur_font, pos_x, align, ucs);
-
-            //// === ACTUALIZAR POSICIÓN Y ÁREAS ===
-            //pos_x += w;  // Avanza posición X según ancho del carácter
-            //area_shift(cur_mon->window, align, w);  // Ajusta áreas clickeables
-        //}
-    //}
-    //// === LIMPIEZA FINAL ===
-    //XftDrawDestroy (xft_draw);  // Libera el drawable XFT
-//}
-
-
 
 void parseBarElement (std::vector<BarElement*> *elements)
 {
@@ -1041,11 +557,14 @@ void parseBarElement (std::vector<BarElement*> *elements)
         element->beginX = pos_x;
         // === COMANDOS DE COLOR ===
         //case 'B': backgroundColor = Color::parse_color(p, &p, defaultBackgroundColor); update_gc(); break;
-        backgroundColor = element->backgroundColor;
+        if (element->backgroundColor != Color(0x00000000U))
+            backgroundColor = element->backgroundColor;
         //case 'F': foregroundColor = Color::parse_color(p, &p, defaultForegroundColor); update_gc(); break;
-        foregroundColor = element->foregroundColor;
+        if (element->foregroundColor != Color(0x00000000U))
+            foregroundColor = element->foregroundColor;
         //case 'U': underlineColor = Color::parse_color(p, &p, defaultUnderlineColor); update_gc(); break;
-        underlineColor = element->underlineColor;
+        if (element->underlineColor != Color(0x00000000U))
+            underlineColor = element->underlineColor;
 
         element->window = cur_mon->window;
         update_gc();
@@ -1398,12 +917,6 @@ font_load (const char *pattern)
     fprintf(stderr, "[lemonbar] font_load: loaded '%s' into slot %d\n", pattern, font_count-1);
 }
 
-void
-setBackground(const char *hex)
-{
-    defaultBackgroundColor = backgroundColor = Color::parse_color(hex, NULL, (Color)0x00000000U);
-    update_gc();
-}
 
 void add_y_offset(int offset) {
     if (offset_y_count >= MAX_FONT_COUNT) {
@@ -1421,29 +934,7 @@ void add_y_offset(int offset) {
 }
 
 
-//void lemonbar_feed(const char *text) {
-    //fprintf(stderr, "[lemonbar] lemonbar_feed: received text (len=%zu)\n", text ? strlen(text) : 0);
-    //char buf[4096];
-    //strncpy(buf, text, sizeof(buf)-1);
-    //buf[sizeof(buf)-1] = '\0';
-    //parse(buf);
-
-    //// Copy pixmap to windows
-    //for (monitor_t *mon = monhead; mon; mon = mon->next) {
-        //xcb_copy_area(c, mon->pixmap, mon->window, gc[GC_DRAW], 0, 0, 0, 0, mon->width, bh);
-    //}
-    //xcb_flush(c);
-    //fprintf(stderr, "[lemonbar] lemonbar_feed: flush complete\n");
-//}
-
 void lemonbar_feed(std::vector<BarElement*> *elements) {
-    //fprintf(stderr, "[lemonbar] lemonbar_feed: received text (len=%zu)\n", text ? strlen(text) : 0);
-    //char buf[4096];
-    //strncpy(buf, text, sizeof(buf)-1);
-    //buf[sizeof(buf)-1] = '\0';
-    std::cout << "area_stack.at: " << area_stack.at << std::endl;
-    std::cout << "area_stack.max: " <<area_stack.max << std::endl;
-    std::cout << "lemonbar_feed" << std::endl << std::endl;
     parseBarElement(elements);
 
     // Copy pixmap to windows
@@ -2099,169 +1590,6 @@ sighandle (int signal)
         exit(EXIT_SUCCESS);
 }
 
-
-//int
-//main (int argc, char **argv)
-//{
-    //struct pollfd pollin[2] = {
-        //{ .fd = STDIN_FILENO, .events = POLLIN },
-        //{ .fd = -1          , .events = POLLIN },
-    //};
-    //xcb_generic_event_t *ev;
-    //xcb_expose_event_t *expose_ev;
-    //xcb_button_press_event_t *press_ev;
-    //char input[4096] = {0, };
-    //bool permanent = false;
-    //int geom_v[4] = { -1, -1, 0, 0 };
-    //int ch, areas;
-    //char *wm_name;
-    //char *instance_name;
-
-    //// Install the parachute!
-    ////atexit(cleanup);
-    //signal(SIGINT, sighandle);
-    //signal(SIGTERM, sighandle);
-
-    //// B/W combo
-    //// Por defecto usamos un fondo opaco (negro) en lugar de transparente
-    //defaultBackgroundColor = backgroundColor = Color(0xff000000U);
-    //defaultForegroundColor = foregroundColor = Color(0xffffffffU);
-
-    //defaultUnderlineColor = underlineColor = foregroundColor;
-
-    //// A safe default
-    //areas = 10;
-    //wm_name = NULL;
-
-    //instance_name = strip_path(argv[0]);
-
-    //// Connect to the Xserver and initialize scr
-    //xconn();
-
-    //while ((ch = getopt(argc, argv, "hg:bdf:a:pu:B:F:U:n:o:")) != -1) {
-        //switch (ch) {
-            //case 'h':
-                //printf ("lemonbar version %s patched with XFT support\n", VERSION);
-                //printf ("usage: %s [-h | -g | -b | -d | -f | -a | -p | -n | -u | -B | -F]\n"
-                        //"\t-h Show this help\n"
-                        //"\t-g Set the bar geometry {width}x{height}+{xoffset}+{yoffset}\n"
-                        //"\t-b Put the bar at the bottom of the screen\n"
-                        //"\t-d Force docking (use this if your WM isn't EWMH compliant)\n"
-                        //"\t-f Set the font name to use\n"
-                        //"\t-a Number of clickable areas available (default is 10)\n"
-                        //"\t-p Don't close after the data ends\n"
-                        //"\t-n Set the WM_NAME atom to the specified value for this bar\n"
-                        //"\t-u Set the underline/overline height in pixels\n"
-                        //"\t-B Set background color in #AARRGGBB\n"
-                        //"\t-F Set foreground color in #AARRGGBB\n"
-                        //"\t-o Add a vertical offset to the text, it can be negative\n", argv[0]);
-                //exit (EXIT_SUCCESS);
-            //case 'g': (void)parse_geometry_string(optarg, geom_v); break;
-            //case 'p': permanent = true; break;
-            //case 'n': wm_name = strdup(optarg); break;
-            ////case 'b': topbar = false; break;
-            //case 'd': dock = true; break;
-            //case 'f': font_load(optarg); break;
-            //case 'u': bu = strtoul(optarg, NULL, 10); break;
-            //case 'o': add_y_offset(strtol(optarg, NULL, 10)); break;
-            //case 'B': defaultBackgroundColor = backgroundColor = Color::parse_color(optarg, NULL, Color(0x00000000U)); break;
-            //case 'F': defaultForegroundColor = foregroundColor = Color::parse_color(optarg, NULL, Color(0xffffffffU)); break;
-            //case 'U': defaultUnderlineColor = underlineColor = Color::parse_color(optarg, NULL, foregroundColor); break;
-            //case 'a': areas = strtoul(optarg, NULL, 10); break;
-        //}
-    //}
-
-    //// Initialize the stack holding the clickable areas
-    //area_stack.at = 0;
-    //area_stack.max = areas;
-    //if (areas) {
-        //area_stack.area = static_cast<area_t *>(calloc(areas, sizeof(area_t)));
-
-        //if (!area_stack.area) {
-            //fprintf(stderr, "Could not allocate enough memory for %d clickable areas, try lowering the number\n", areas);
-            //return EXIT_FAILURE;
-        //}
-    //}
-    //else
-        //area_stack.area = NULL;
-
-
-    //// Copy the geometry values in place
-    //bw = geom_v[0];
-    //bh = geom_v[1];
-    //bx = geom_v[2];
-    //by = geom_v[3];
-
-    //// Do the heavy lifting
-    ////init(wm_name, instance_name);
-    //// The string is strdup'd when the command line arguments are parsed
-    //free(wm_name);
-    //// The string is strdup'd when stripping argv[0]
-    //free(instance_name);
-    //// Get the fd to Xserver
-    //pollin[1].fd = xcb_get_file_descriptor(c);
-    //for (;;) {
-        //bool redraw = false;
-
-        //// If connection is in error state, then it has been shut down.
-        //if (xcb_connection_has_error(c))
-            //break;
-
-        //if (poll(pollin, 2, -1) > 0) {
-            //if (pollin[0].revents & POLLHUP) {      // No more data...
-                //if (permanent) pollin[0].fd = -1;   // ...null the fd and continue polling :D
-                //else break;                         // ...bail out
-            //}
-            //if (pollin[0].revents & POLLIN) { // New input, process it
-                //if (fgets(input, sizeof(input), stdin) == NULL)
-                    //break; // EOF received
-
-                //parse(input);
-                //redraw = true;
-            //}
-            //if (pollin[1].revents & POLLIN) { // The event comes from the Xorg server
-                //while ((ev = xcb_poll_for_event(c))) {
-                    //expose_ev = (xcb_expose_event_t *)ev;
-
-                    //switch (ev->response_type & 0x7F) {
-                        //case XCB_EXPOSE:
-                            //if (expose_ev->count == 0)
-                                //redraw = true;
-                            //break;
-                        //case XCB_BUTTON_PRESS:
-                            //press_ev = (xcb_button_press_event_t *)ev;
-                            //{
-                                //area_t *area = area_get(press_ev->event, press_ev->detail, press_ev->event_x);
-                                //// Respond to the click
-                                //if (area) {
-                                    //if (click_cb) {
-                                        //click_cb(area->cmd);
-                                    //} else {
-                                        //(void)write(STDOUT_FILENO, area->cmd, strlen(area->cmd));
-                                        //(void)write(STDOUT_FILENO, "\n", 1);
-                                    //}
-                                //}
-                            //}
-                        //break;
-                    //}
-
-                    //free(ev);
-                //}
-            //}
-        //}
-
-        //if (redraw) { // Copy our temporary pixmap onto the window
-            //for (monitor_t *mon = monhead; mon; mon = mon->next) {
-                //xcb_copy_area(c, mon->pixmap, mon->window, gc[GC_DRAW], 0, 0, 0, 0, mon->width, bh);
-            //}
-        //}
-
-        //xcb_flush(c);
-    //}
-
-    //return EXIT_SUCCESS;
-//}
-
     ~Bar() {
         for (int i = 0; font_list[i]; i++) {
             if (font_list[i]->xft_ft) {
@@ -2292,8 +1620,6 @@ sighandle (int signal)
             xcb_free_gc(c, gc[GC_ATTR]);
         if (c)
             xcb_disconnect(c);
-        if (area_stack.area)
-            free(area_stack.area);
     }
 };
 #endif /* LEMONBAR_LIB */

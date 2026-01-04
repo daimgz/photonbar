@@ -22,7 +22,12 @@ public:
     // 3. Constructor para componentes individuales: rgba_t col = {b, g, r, a};
     Color(uint8_t _b, uint8_t _g, uint8_t _r, uint8_t _a = 255)
         : b(_b), g(_g), r(_r), a(_a) {}
-
+    bool operator==(const Color& other) const {
+        return v == other.v;
+    }
+    bool operator!=(const Color& other) const {
+        return !(*this == other);
+    }
     static Color parse_color (const char *str, char **end, const Color def)
     {
         int string_len;
