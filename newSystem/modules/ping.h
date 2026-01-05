@@ -63,7 +63,7 @@ public:
         get_network_io(last_sent, last_recv);
 
         baseElement.moduleName = name;
-        baseElement.alignment = ALIGN_R;
+        baseElement.alignment = ALIGN_L;
 
         baseElement.setEvent(
             BarElement::CLICK_LEFT,

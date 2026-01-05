@@ -467,10 +467,13 @@ void area_shift (xcb_window_t win, const int align, int delta)
         delta /= 2;
 
     for (BarElement* e : elements) {
-        if (e->window == win && e->alignment == align && !e->isActive) {
-            e->beginX -= delta;   // ✓ Correcto
-            // e->widthX -= delta;  // ❌ Error: modifica ancho, no coordenada final
-            // En su lugar, widthX debe permanecer igual (es el ancho del elemento)
+        if (e->window == win && e->alignment == align) {
+            // Mover solo los elementos que no están activos (como en el sistema original)
+            // En el nuevo sistema, isActive podría usarse para elementos dinámicos
+            if (!e->isActive) {
+                e->beginX -= delta;   // ✓ Correcto: ajustar coordenada X
+                // width permanece igual (es el ancho del elemento)
+            }
         }
     }
 }
@@ -527,6 +530,14 @@ void parseBarElement (std::vector<BarElement*> *elements)
     int pos_x, align; // Posición X actual, alineación, botón del mouse
     //char *block_end, *ep; // Punteros: actual al texto, fin del bloque, fin de parámetro
     Color tmp;               // Variable temporal para intercambiar colores
+
+    // === SISTEMA DE POSICIONAMIENTO ACUMULATIVO POR GRUPO ===
+    struct GroupPositions {
+        int left_pos = 0;
+        int center_total_width = 0;  // Ancho total de elementos centrados
+        int right_pos = 0;
+        std::vector<BarElement*> center_elements;  // Elementos centrados para ajuste final
+    } group_pos;
 
     // === INICIALIZACIÓN DE ESTADO DE DIBUJO ===
     pos_x = 0;              // Posición X inicial (comienza desde la izquierda)
@@ -811,22 +822,40 @@ void parseBarElement (std::vector<BarElement*> *elements)
             element->dirtyContent = false;
         }
 
+        // === PRIMER PASO: Asignar posición base según alineación ===
         switch (element->alignment) {
             case ALIGN_L:
-                element->beginX = pos_x;  // Ya establecido en línea 557
+                element->beginX = group_pos.left_pos;
+                group_pos.left_pos += element->width;
                 break;
             case ALIGN_C:
-                // Para centrado: calcular posición después de conocer el ancho
-                element->beginX = (cur_mon->width - element->width) / 2;
-                pos_x = element->beginX;
+                element->beginX = group_pos.center_total_width;  // Posición relativa dentro del grupo central
+                group_pos.center_total_width += element->width;
+                group_pos.center_elements.push_back(element);  // Guardar para ajuste final
                 break;
             case ALIGN_R:
-                // Para derecha: el elemento va al final
-                element->beginX = cur_mon->width - element->width;
-                pos_x = element->beginX;
+                element->beginX = cur_mon->width - element->width - group_pos.right_pos;
+                group_pos.right_pos += element->width;
                 break;
         }
+    }
+    
+    // === SEGUNDO PASO: Ajustar posiciones centradas al monitor ===
+    int center_offset = (cur_mon->width - group_pos.center_total_width) / 2;
+    for (BarElement* center_elem : group_pos.center_elements) {
+        center_elem->beginX += center_offset;
+    }
+    
+    // === TERCER PASO: Renderizar todos los elementos ===
+    for (BarElement* element : *elements) {
         std::cout << "Entre y el valor es : " << element->beginX << " y " << element->beginX + element->width << std::endl;
+
+        // Aplicar offsetPixels si existe
+        if (element->offsetPixels > 0) {
+            draw_shift(cur_mon, element->beginX, element->alignment, element->offsetPixels);
+            element->beginX += element->offsetPixels;
+            area_shift(cur_mon->window, element->alignment, element->offsetPixels);
+        }
 
         uint32_t ucs = 0;
         pos_x = element->beginX;
@@ -850,10 +879,9 @@ void parseBarElement (std::vector<BarElement*> *elements)
             pos_x += element->ucsContentCharWidths[i];
 
             // === ACTUALIZAR POSICIÓN Y ÁREAS ===
-            area_shift(cur_mon->window, align, element->ucsContentCharWidths[i]);  // Ajusta áreas clickeables
+            area_shift(cur_mon->window, element->alignment, element->ucsContentCharWidths[i]);  // Ajusta áreas clickeables
             //std::cout << "ucs: " << ucs << ", w: " << with_char << std::endl;
         }
-
     }
     // === LIMPIEZA FINAL ===
     XftDrawDestroy (xft_draw);  // Libera el drawable XFT
