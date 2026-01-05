@@ -20,6 +20,16 @@
 typedef std::function<void()> EventFunction;
 
 struct BarElement {
+
+    enum EventType {
+        CLICK_LEFT = 1,
+        CLICK_MIDDLE = 2,
+        CLICK_RIGHT = 3,
+        SCROLL_UP = 4,
+        SCROLL_DOWN = 5
+    };
+
+
     // --- Datos de texto (owned) ---
   //private:
     char content[CONTENT_MAX_LEN];
@@ -31,30 +41,8 @@ struct BarElement {
 
     // --- Datos de posición (calculados) ---
     uint16_t beginX;
-    uint16_t widthX;
+    uint16_t width;
 
-    //xcb_window_t window;
-  //public:
-    //const char *getContent() const { return content; }
-    //uint8_t getContentLen() const { return contentLen; }
-    //uint16_t getBeginX() const { return beginX; }
-    //uint16_t getWidthX() const { return widthX; }
-
-    //void setContent(const char *str, const uint8_t len) {
-        //this->contentLen = len;
-        //strcpy(content, str);
-
-        //std::memset(ucsContent, 0, sizeof(ucsContent));
-        //dirtyContent = true;
-    //}
-
-    enum EventType {
-        CLICK_LEFT = 1,
-        CLICK_MIDDLE = 2,
-        CLICK_RIGHT = 3,
-        SCROLL_UP = 4,
-        SCROLL_DOWN = 5
-    };
 
     // --- Datos de color ---
     Color foregroundColor;
@@ -90,7 +78,7 @@ struct BarElement {
 
     // Constructor por defecto con valores inicializados
     BarElement() : content(""), dirtyContent(false), contentLen(0),
-                   beginX(0), widthX(0), alignment(ALIGN_L), fontIndex(-1),
+                   beginX(0), width(0), alignment(ALIGN_L), fontIndex(-1),
                    offsetPixels(0), screenTarget(0), underline(false), overline(false),
                    reverseColors(false), isActive(false), eventCharged(false) {}
 

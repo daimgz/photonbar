@@ -1,3 +1,4 @@
+#include "modules/ping.h"
 #include "process_manager.h"
 #define _POSIX_C_SOURCE 200809L
 #define _BSD_SOURCE
@@ -185,8 +186,11 @@ public:
            // Determinar si necesitamos actualizar módulos
            bool should_update = false;
            if (workspace_changed) {
+              //TODO: ver si funciona con el nuevo sistema de eventos
                fprintf(stderr, "[BarManager] Workspace changed, marking for update\n");
-               markForUpdate("workspace");
+               //markForUpdate("workspace");
+               workspace->update();
+               //hasUpdates()
                should_update = true;
            } else if (ret == 0) {
                // Timeout reached - revisar módulos para actualización periódica
@@ -242,33 +246,30 @@ public:
 
   void updateModules() {
       any_updated = false;
-      for (auto* module : modules) {
-          if (module->shouldUpdate()) {
-              module->update();
-              module->last_update = time(nullptr);
-              module->needs_update = false;
+      for (Module* module : modules) {
+          if (module->checkAndUpdate()) {
               any_updated = true;
           }
       }
   }
 
-  void markForUpdate(const std::string& moduleName) {
-      auto it = std::find_if(modules.begin(), modules.end(),
-          [&moduleName](Module* m) { return m->getName() == moduleName; });
-      if (it != modules.end()) {
-          (*it)->markForUpdate();
-      }
-  }
+  //void markForUpdate(const std::string& moduleName) {
+      //auto it = std::find_if(modules.begin(), modules.end(),
+          //[&moduleName](Module* m) { return m->getName() == moduleName; });
+      //if (it != modules.end()) {
+          //(*it)->markForUpdate();
+      //}
+  //}
 
   bool hasUpdates() const {
       return any_updated;
   }
 
-  void setAllAutoUpdate(bool enabled) {
-      for (auto* module : modules) {
-          module->setAutoUpdate(enabled);
-      }
-  }
+  //void setAllAutoUpdate(bool enabled) {
+      //for (auto* module : modules) {
+          //module->setAutoUpdate(enabled);
+      //}
+  //}
 
   void render_bar() {
       if (elements.empty())
@@ -404,7 +405,7 @@ int main(int argc, char* argv[]) {
     //static WeatherModule weather_top;
     //static SpaceModule space_bottom;
     //static ResourcesModule resources_bottom;
-    //static PingModule ping_bottom;
+    static PingModule ping_top;
     //static StopwatchModule stopwatch_top;
     //static StopwatchModule stopwatch_bottom;
     //static TimerModule timer_top;
@@ -415,6 +416,7 @@ int main(int argc, char* argv[]) {
         std::vector<Module*> left_modules;
         //left_modules.push_back(&workspace_top);
         left_modules.push_back(&datetime_top);
+        left_modules.push_back(&ping_top);
 
         std::vector<Module*> right_modules;
         //right_modules.push_back(&audio_top);

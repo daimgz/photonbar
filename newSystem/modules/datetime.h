@@ -15,12 +15,13 @@ class DateTimeModule : public Module {
   public:
 
   DateTimeModule():
-    Module("datetime"),
+    Module("datetime", false, 1),
     dias({"dom", "lun", "mar", "mié", "jue", "vie", "sab"}),
     show_hour(true)
   {
 
     baseElement.moduleName = name;
+    baseElement.alignment = ALIGN_R;
     baseElement.setEvent(
       BarElement::CLICK_LEFT,
       [this](){
@@ -28,10 +29,9 @@ class DateTimeModule : public Module {
 
         if (this->show_hour) {
           // Mostrar hora: actualizar cada segundo
-          this->setUpdatePerIteration(true);
+          this->setSecondsPerUpdate(1);
         } else {
           // Solo fecha: actualizar cada minuto
-          this->setUpdatePerIteration(false);
           this->setSecondsPerUpdate(60);
         }
         update();
@@ -73,6 +73,8 @@ class DateTimeModule : public Module {
             );
         }
         baseElement.dirtyContent = true;
+        lastUpdate = time(nullptr);
+        std::cout << "the datetime was updated :D" << std::endl;
     }
 
     std::array<const char*, 7> dias;

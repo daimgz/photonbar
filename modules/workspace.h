@@ -25,7 +25,7 @@ int last_second = 0;
 class WorkspaceModule : public Module {
   public:
     WorkspaceModule():
-      Module("workspace")
+      Module("workspace", false, 1)
     {}
 
     void update() {
@@ -33,7 +33,7 @@ class WorkspaceModule : public Module {
       if (!cache_initialized) {
         refresh_cache();
       }
-      
+
       // Generate buffer from cached workspace names
       generate_buffer();
     }
@@ -42,11 +42,11 @@ class WorkspaceModule : public Module {
       // Handle workspace switching events
       if (strncmp(eventValue, "ws_", 3) == 0) {
         const char *ws_name = eventValue + 3;
-        
+
         // 1. Instantáneo: actualizar cache y buffer (como datetime)
         update_cache(ws_name);
         generate_buffer();
-        
+
         // 2. Ejecutar comando real de cambio de workspace
         execute_workspace_switch(ws_name);
       }
@@ -86,7 +86,7 @@ class WorkspaceModule : public Module {
       // Get current workspace using i3ipc
       I3ipc_reply_workspaces* reply = i3ipc_get_workspaces();
       if (!reply) return;
-      
+
       for (int i = 0; i < reply->workspaces_size; ++i) {
         if (reply->workspaces[i].focused) {
           strncpy(current_workspace, reply->workspaces[i].name, sizeof(current_workspace) - 1);
@@ -94,47 +94,47 @@ class WorkspaceModule : public Module {
           break;
         }
       }
-      
+
       cache_initialized = true;
       free(reply);
     }
-    
+
     void generate_buffer() {
       // Generate workspace display buffer
       char result[1024] = "";
-      
+
       I3ipc_reply_workspaces* reply = i3ipc_get_workspaces();
       if (reply) {
         for (int i = 0; i < reply->workspaces_size; ++i) {
           bool is_current = (strcmp(reply->workspaces[i].name, current_workspace) == 0);
-          
+
           if (is_current) {
-            sprintf(result + strlen(result), 
-                "%%{A1:ws_%s:}%%{F#E0AAFF}%%{U#E0AAFF}%%{+u} %s %%{-u}%%{U-}%%{F-}%%{A}", 
+            sprintf(result + strlen(result),
+                "%%{A1:ws_%s:}%%{F#E0AAFF}%%{U#E0AAFF}%%{+u} %s %%{-u}%%{U-}%%{F-}%%{A}",
                 reply->workspaces[i].name, reply->workspaces[i].name);
           } else {
-            sprintf(result + strlen(result), 
-                "%%{A1:ws_%s:}%%{F#666666} %s %%{F-}%%{A}", 
+            sprintf(result + strlen(result),
+                "%%{A1:ws_%s:}%%{F#666666} %s %%{F-}%%{A}",
                 reply->workspaces[i].name, reply->workspaces[i].name);
           }
         }
         free(reply);
       }
-      
+
       buffer = result;
     }
-    
+
     void update_cache(const char* ws_name) {
       // Instantly update current workspace in cache (no IPC needed)
       strncpy(current_workspace, ws_name, sizeof(current_workspace) - 1);
       current_workspace[sizeof(current_workspace) - 1] = '\0';
     }
-    
+
     void execute_workspace_switch(const char* ws_name) {
       // Execute workspace switch using non-blocking approach
       char cmd[256];
       snprintf(cmd, sizeof(cmd), "i3-msg workspace \"%.50s\" > /dev/null", ws_name);
-      
+
       // Create child process - parent continues immediately
       if (fork() == 0) {
         // Child process - runs i3-msg command

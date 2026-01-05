@@ -459,8 +459,7 @@ set_attribute (const char modifier, const char attribute)
     //return NULL;
 //}
 
-void
-area_shift (xcb_window_t win, const int align, int delta)
+void area_shift (xcb_window_t win, const int align, int delta)
 {
     if (align == ALIGN_L)
         return;
@@ -469,8 +468,9 @@ area_shift (xcb_window_t win, const int align, int delta)
 
     for (BarElement* e : elements) {
         if (e->window == win && e->alignment == align && !e->isActive) {
-            e->beginX -= delta;
-            e->widthX -= delta;
+            e->beginX -= delta;   // ✓ Correcto
+            // e->widthX -= delta;  // ❌ Error: modifica ancho, no coordenada final
+            // En su lugar, widthX debe permanecer igual (es el ancho del elemento)
         }
     }
 }
@@ -553,7 +553,7 @@ void parseBarElement (std::vector<BarElement*> *elements)
     // === BUCLE PRINCIPAL DE PARSEO ===
     // Procesa cada carácter o bloque de formato del texto
     for (BarElement* element : *elements) {
-        std::cout << std::endl << std::endl << "estoy" << element->content << " len " << element->contentLen << std::endl << std::endl << std::endl;
+        //std::cout << std::endl << std::endl << "estoy" << element->content << " len " << element->contentLen << std::endl << std::endl << std::endl;
         element->beginX = pos_x;
         // === COMANDOS DE COLOR ===
         //case 'B': backgroundColor = Color::parse_color(p, &p, defaultBackgroundColor); update_gc(); break;
@@ -621,7 +621,6 @@ void parseBarElement (std::vector<BarElement*> *elements)
                             //return;  // Error en area_add, terminar parseo
 
                         //int areaId = 0;
-                        //FIX: se tiene que actualizar el ancho total del area en caso de que cambie el ancho del texto
                         //if (element->eventCharged == false) {
                             //std::cout << "event charged" << std::endl << std::endl << std::endl;
                             //for (std::pair<BarElement::EventType, EventFunction> pair : element->events) {
@@ -806,20 +805,28 @@ void parseBarElement (std::vector<BarElement*> *elements)
                 element->ucsContentCharWidths[i] = char_width;
                 std::cout << "ucs: " << ucs << ", w: " << char_width << std::endl;
             }
-            element->widthX = pos_x - element->beginX;
-            std::cout << "element->widthX: " << element->widthX << std::endl;
+            element->width = pos_x - element->beginX;
+            std::cout << "element->widthX: " << element->width << std::endl;
             std::cout << "pos_x: " << pos_x << std::endl;
             element->dirtyContent = false;
         }
 
-        //std::cout << a << std::endl;
-        //if (element->eventCharged == false) {
-            //TODO: El valor de end en el area se debe actualizar siempre junto al  width del element
-            //a->end = element->beginX + element->widthX;
-            //element->eventCharged = true;
-            //
-            std::cout << "Entre y el valor es : " << element->beginX << " y " << element->beginX + element->widthX << std::endl;
-        //}
+        switch (element->alignment) {
+            case ALIGN_L:
+                element->beginX = pos_x;  // Ya establecido en línea 557
+                break;
+            case ALIGN_C:
+                // Para centrado: calcular posición después de conocer el ancho
+                element->beginX = (cur_mon->width - element->width) / 2;
+                pos_x = element->beginX;
+                break;
+            case ALIGN_R:
+                // Para derecha: el elemento va al final
+                element->beginX = cur_mon->width - element->width;
+                pos_x = element->beginX;
+                break;
+        }
+        std::cout << "Entre y el valor es : " << element->beginX << " y " << element->beginX + element->width << std::endl;
 
         uint32_t ucs = 0;
         pos_x = element->beginX;
@@ -844,7 +851,7 @@ void parseBarElement (std::vector<BarElement*> *elements)
 
             // === ACTUALIZAR POSICIÓN Y ÁREAS ===
             area_shift(cur_mon->window, align, element->ucsContentCharWidths[i]);  // Ajusta áreas clickeables
-                //std::cout << "ucs: " << ucs << ", w: " << with_char << std::endl;
+            //std::cout << "ucs: " << ucs << ", w: " << with_char << std::endl;
         }
 
     }
@@ -977,7 +984,7 @@ void processXEvents(void) {
                         if (
                             elements[i]->window == press_ev->event &&
                             ((const int)press_ev->event_x) >= elements[i]->beginX &&
-                            ((const int)press_ev->event_x) < (elements[i]->beginX + elements[i]->widthX)
+                            ((const int)press_ev->event_x) < (elements[i]->beginX + elements[i]->width)
                         ) {
                             pair.second();
                         }
