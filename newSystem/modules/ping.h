@@ -59,12 +59,10 @@ private:
     }
 
 public:
-    PingModule() : Module("network", false, 1) {
+    PingModule() : Module("network", false, 1, ALIGN_R ) {
         get_network_io(last_sent, last_recv);
 
         baseElement.moduleName = name;
-        baseElement.alignment = ALIGN_L;
-
         baseElement.setEvent(
             BarElement::CLICK_LEFT,
             [this](){

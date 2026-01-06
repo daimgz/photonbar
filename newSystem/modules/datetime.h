@@ -15,13 +15,12 @@ class DateTimeModule : public Module {
   public:
 
   DateTimeModule():
-    Module("datetime", false, 1),
+    Module("datetime", false, 1, ALIGN_R),
     dias({"dom", "lun", "mar", "mié", "jue", "vie", "sab"}),
     show_hour(true)
   {
 
     baseElement.moduleName = name;
-    baseElement.alignment = ALIGN_R;
     baseElement.setEvent(
       BarElement::CLICK_LEFT,
       [this](){

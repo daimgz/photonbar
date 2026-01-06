@@ -45,6 +45,7 @@ struct BarElement {
 
 
     // --- Datos de color ---
+    // TODO: esto debe estar acá, pero se debe poder forzar en modula
     Color foregroundColor;
     Color backgroundColor;
     Color underlineColor;
@@ -53,15 +54,8 @@ struct BarElement {
     std::map<EventType, EventFunction> events;
     std::string moduleName;
 
-    //TODO: esto debe pasar a ser por modulo que por elemento
-    xcb_window_t window;
-
     // --- Datos de formato ---
-    int alignment;           // ALIGN_L/C/R
-    int fontIndex;          // -1 = automático
     int offsetPixels;
-    int screenTarget;       // +/-/f/l/número
-
 
     // --- Estados y atributos ---
     bool underline;
@@ -78,8 +72,8 @@ struct BarElement {
 
     // Constructor por defecto con valores inicializados
     BarElement() : content(""), dirtyContent(false), contentLen(0),
-                   beginX(0), width(0), alignment(ALIGN_L), fontIndex(-1),
-                   offsetPixels(0), screenTarget(0), underline(false), overline(false),
+                   beginX(0), width(0),
+                   offsetPixels(0), underline(false), overline(false),
                    reverseColors(false), isActive(false), eventCharged(false) {}
 
 };
