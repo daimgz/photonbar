@@ -72,6 +72,7 @@ public:
     for (Module* module : leftModules) {
         modules.push_back(module);
     }
+
     for (Module* module : rightModules) {
         modules.push_back(module);
     }
@@ -91,9 +92,10 @@ public:
       COLOR_FG,
       this->isTop,
       {std::string(FONT_TEXT), std::string(FONT_ICON)},
-      modules
+      leftModules,
+      rightModules
     );
-    xcb_fd = bar->lemonbar_get_xcb_fd();
+    xcb_fd = bar->getXcbFd();
   }
 
   bool initialize() {
@@ -282,7 +284,7 @@ public:
           renderCount++;
           fprintf(stderr, "[BarManager] Rendering bar with content, num: %i", renderCount);
           //std::cout << std::endl << std::endl << "main.cpp estoy" << elements[0]->content << " len " << elements[0]->contentLen << std::endl << std::endl << std::endl;
-          bar->lemonbar_feed();
+          bar->feed();
       //}
   }
 
@@ -371,10 +373,9 @@ int main(int argc, char* argv[]) {
 
     std::vector<Module*> left_modules;
     left_modules.push_back(&datetime_top);
-    left_modules.push_back(&ping_top);
 
     std::vector<Module*> right_modules;
-    // right_modules vacío por ahora
+    right_modules.push_back(&ping_top);
 
     if (debug_log) {
         FILE* debug = fopen("/tmp/myBar_debug.log", "a");

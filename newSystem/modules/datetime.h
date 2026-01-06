@@ -15,7 +15,7 @@ class DateTimeModule : public Module {
   public:
 
   DateTimeModule():
-    Module("datetime", false, 1, ALIGN_R),
+    Module("datetime", false, 1),
     dias({"dom", "lun", "mar", "mié", "jue", "vie", "sab"}),
     show_hour(true)
   {

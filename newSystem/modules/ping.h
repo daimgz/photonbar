@@ -59,7 +59,7 @@ private:
     }
 
 public:
-    PingModule() : Module("network", false, 1, ALIGN_R ) {
+    PingModule() : Module("network", false, 1) {
         get_network_io(last_sent, last_recv);
 
         baseElement.moduleName = name;

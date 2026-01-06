@@ -20,8 +20,6 @@ class Module {
     static constexpr const char* COLOR_RED = "#FF6B6B";   // Rojo para estado muteado
 
     xcb_window_t window;
-    //TODO: cambiar a mejor tipo
-    int alignment;           // ALIGN_L/C/R
     int fontIndex;          // -1 = automático
     int screenTarget;       // +/-/f/l/número
 
@@ -80,8 +78,7 @@ class Module {
     void setAutoUpdate(bool enabled) { autoUpdate = enabled; }
     void setSecondsPerUpdate(int seconds) { secondsPerUpdate = seconds; }
 
-    Module(std::string name, bool autoUpdate, int secondsPerUpdate, int alignment) :
-      alignment(alignment),
+    Module(std::string name, bool autoUpdate, int secondsPerUpdate) :
       fontIndex(-1),
       screenTarget(0),
       secondsPerUpdate(secondsPerUpdate),

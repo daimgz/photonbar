@@ -11,9 +11,6 @@
 #include <xcb/xproto.h>
 
 // Constantes para alineación (compatibles con bar.h)
-#define ALIGN_L 0
-#define ALIGN_C 1
-#define ALIGN_R 2
 
 #define CONTENT_MAX_LEN 255
 
