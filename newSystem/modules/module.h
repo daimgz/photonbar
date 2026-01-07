@@ -23,11 +23,6 @@ class Module {
     int fontIndex;          // -1 = automático
     int screenTarget;       // +/-/f/l/número
 
-    // TODO:a eliimnars
-    const char *getBuffer() {
-      return buffer.c_str();
-    }
-
     const std::string& getName() const {
       return name;
     }
@@ -38,16 +33,6 @@ class Module {
 
     virtual void update() = 0;
     virtual bool initialize() { return true; } // Default implementation for modules that don't need initialization
-
-    //TODO: a eliminar
-    virtual void handleClick(EventFunction func) {
-      func();
-      this->renderFunction();
-      //if (update_on_click) {
-          //update();
-      //}
-      //return render_on_click;
-    }
 
     // Métodos de control de actualización
   //
@@ -99,9 +84,6 @@ class Module {
     std::string name;
     std::vector<BarElement*> elements;
 
-
-    //TODO: a eliminar
-    std::string buffer ;
     // Permitir acceso a BarManager
     friend class BarManager;
 };

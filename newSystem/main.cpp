@@ -25,7 +25,7 @@
 #include "modules/datetime.h"
 //#include "modules/battery.h"
 //#include "modules/audio.h"
-//#include "../modules/workspace.h"
+#include "modules/workspace.h"
 //#include "modules/resources.h"
 //#include "modules/ping.h"
 //#include "modules/stopwatch.h"
@@ -77,10 +77,10 @@ public:
     // Encontrar y guardar referencia al módulo workspace
     for (auto* module : modules) {
         module->setRenderFunction([this]() { render_bar(); });
-        //if (module->getName() == "workspace") {
-            //workspace = static_cast<WorkspaceModule*>(module);
-            //break;
-        //}
+        if (module->getName() == "workspace") {
+            workspace = static_cast<WorkspaceModule*>(module);
+            break;
+        }
     }
 
     bar = new Bar(
@@ -121,12 +121,12 @@ public:
 
            FD_ZERO(&fds);
            if (xcb_fd != -1) FD_SET(xcb_fd, &fds); // Escuchar eventos X
-           //int i3_fd = workspace ? workspace->setup_select_fds(fds) : -1; // Escuchar cambios de escritorio
+int i3_fd = workspace ? workspace->setup_select_fds(fds) : -1; // Escuchar cambios de escritorio
 
-           // Calcular max_fd correctamente cuando no hay workspace
-           int max_fd = -1;
-           if (xcb_fd != -1) max_fd = xcb_fd;
-           //if (i3_fd > max_fd) max_fd = i3_fd;
+            // Calcular max_fd correctamente cuando no hay workspace
+            int max_fd = -1;
+            if (xcb_fd != -1) max_fd = xcb_fd;
+            if (i3_fd > max_fd) max_fd = i3_fd;
 
            int ret;
            // Si no hay file descriptors válidos, usar timeout
@@ -145,23 +145,20 @@ public:
               break;
           }
 
-           //bool workspace_changed = workspace ? workspace->handle_i3_events(fds) : false;
+           bool workspace_changed = workspace ? workspace->handle_i3_events(fds) : false;
 
            // Procesar eventos X - estos pueden generar clicks que se manejan por separado
            if (xcb_fd != -1 && FD_ISSET(xcb_fd, &fds)) {
                handle_x_events(fds);
            }
 
-           // Determinar si necesitamos actualizar módulos
-           bool should_update = false;
-           //if (workspace_changed) {
-              ////TODO: ver si funciona con el nuevo sistema de eventos
-               //fprintf(stderr, "[BarManager] Workspace changed, marking for update\n");
-               ////markForUpdate("workspace");
-               //workspace->update();
-               ////hasUpdates()
-               //should_update = true;
-           //} else
+// Determinar si necesitamos actualizar módulos
+            bool should_update = false;
+            if (workspace_changed) {
+                fprintf(stderr, "[BarManager] Workspace changed, marking for update\n");
+                workspace->update();
+                should_update = true;
+            } else
           if (ret == 0) {
                // Timeout reached - revisar módulos para actualización periódica
                fprintf(stderr, "[BarManager] Timeout reached, checking modules\n");
@@ -194,7 +191,7 @@ public:
 
   int xcb_fd;
   Bar* bar;
-  //WorkspaceModule* workspace;
+  WorkspaceModule* workspace;
 
    // Eliminados handlers estáticos duplicados - ahora usa lambda con captura this
 
@@ -367,8 +364,10 @@ int main(int argc, char* argv[]) {
     // Crear módulos para la barra superior
     static DateTimeModule datetime_top;
     static PingModule ping_top;
+    static WorkspaceModule workspace_top;
 
     std::vector<Module*> left_modules;
+    left_modules.push_back(&workspace_top);
     left_modules.push_back(&datetime_top);
 
     std::vector<Module*> right_modules;

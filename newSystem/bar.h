@@ -907,6 +907,16 @@ select_drawable_font (const uint32_t c)
         for (int i = 0; i < element->ucsContentLen; i++) {
             uint32_t ucs = element->ucsContent[i];
             font_t *cur_font = select_drawable_font(ucs);
+            
+            // Hot fix: Si no hay font válida, usar la primera disponible
+            if (!cur_font) {
+                if (font_count > 0) {
+                    cur_font = font_list[0];
+                } else {
+                    // Si no hay ninguna font, skip este carácter
+                    continue;
+                }
+            }
 
             if (cur_font->ptr) {
                 xcb_change_gc(c, gc[GC_DRAW] , XCB_GC_FONT,
