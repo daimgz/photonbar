@@ -105,10 +105,14 @@ class WorkspaceModule : public Module {
         BarElement* element = new BarElement();
         element->moduleName = name;
         
-        // Copy workspace name
-        strncpy(element->content, reply->workspaces[i].name, CONTENT_MAX_LEN - 1);
-        element->content[CONTENT_MAX_LEN - 1] = '\0';
-        element->contentLen = strlen(element->content);
+        // Copy workspace name with spacing
+        element->contentLen = snprintf(
+            element->content, 
+            CONTENT_MAX_LEN - 1, 
+            " %s ", 
+            reply->workspaces[i].name
+        );
+        element->content[element->contentLen] = '\0';
         element->dirtyContent = true;
         
         // Set click event with captured workspace name
@@ -143,9 +147,16 @@ class WorkspaceModule : public Module {
         // Find or create element for this workspace
         BarElement* element = nullptr;
         for (BarElement* elem : workspace_elements) {
-          if (strcmp(elem->content, reply->workspaces[i].name) == 0) {
-            element = elem;
-            break;
+          // Compare trimmed content (remove leading/trailing spaces)
+          std::string elem_content(elem->content);
+          size_t start = elem_content.find_first_not_of(" ");
+          size_t end = elem_content.find_last_not_of(" ");
+          if (start != std::string::npos && end != std::string::npos) {
+            std::string trimmed = elem_content.substr(start, end - start + 1);
+            if (trimmed == reply->workspaces[i].name) {
+              element = elem;
+              break;
+            }
           }
         }
         
@@ -168,10 +179,14 @@ class WorkspaceModule : public Module {
           elements.push_back(element);
         }
         
-        // Update element content and styling
-        strncpy(element->content, reply->workspaces[i].name, CONTENT_MAX_LEN - 1);
-        element->content[CONTENT_MAX_LEN - 1] = '\0';
-        element->contentLen = strlen(element->content);
+        // Update element content and styling with spacing
+        element->contentLen = snprintf(
+            element->content, 
+            CONTENT_MAX_LEN - 1, 
+            " %s ", 
+            reply->workspaces[i].name
+        );
+        element->content[element->contentLen] = '\0';
         element->dirtyContent = true;
         
         // Apply colors and formatting
@@ -192,9 +207,16 @@ class WorkspaceModule : public Module {
       while (it != workspace_elements.end()) {
         bool found = false;
         for (int i = 0; i < reply->workspaces_size; ++i) {
-          if (strcmp((*it)->content, reply->workspaces[i].name) == 0) {
-            found = true;
-            break;
+          // Compare trimmed content (remove leading/trailing spaces)
+          std::string elem_content((*it)->content);
+          size_t start = elem_content.find_first_not_of(" ");
+          size_t end = elem_content.find_last_not_of(" ");
+          if (start != std::string::npos && end != std::string::npos) {
+            std::string trimmed = elem_content.substr(start, end - start + 1);
+            if (trimmed == reply->workspaces[i].name) {
+              found = true;
+              break;
+            }
           }
         }
         if (!found) {
