@@ -813,6 +813,10 @@ select_drawable_font (const uint32_t c)
     void renderAllElements() {
         monitor_t* cur_mon = monhead;
 
+        // Margen derecho permanente (similar a CSS margin-right)
+        const int RIGHT_MARGIN = xft_char_width(' ', select_drawable_font(' '));
+        int available_width = cur_mon->width - RIGHT_MARGIN;
+
         // Renderizar elementos izquierdos con separadores
         int current_x = 0;
         for (size_t i = 0; i < left_modules.size(); i++) {
@@ -831,8 +835,8 @@ select_drawable_font (const uint32_t c)
             }
         }
 
-        // Renderizar elementos derechos con separadores
-        // Para derecha, necesitamos calcular el ancho total primero
+        // Renderizar elementos derechos con márgen
+        // Calcular ancho total de elementos derechos
         int total_right_width = 0;
         for (Module* module : right_modules) {
             for (BarElement* element : module->getElements()) {
@@ -860,8 +864,8 @@ select_drawable_font (const uint32_t c)
 
         int total_right_with_separators = total_right_width + (right_separator_count * separator_width);
 
-        // Posicionar elementos derechos de derecha a izquierda
-        current_x = cur_mon->width - total_right_with_separators;
+        // Posicionar elementos derechos respetando el margen derecho
+        current_x = available_width - total_right_with_separators;
 
         for (size_t i = 0; i < right_modules.size(); i++) {
             Module* module = right_modules[i];

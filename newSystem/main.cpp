@@ -369,11 +369,11 @@ int main(int argc, char* argv[]) {
     static PingModule ping_top;
 
     std::vector<Module*> left_modules;
-    //left_modules.push_back(&datetime_top);
+    left_modules.push_back(&datetime_top);
 
     std::vector<Module*> right_modules;
     right_modules.push_back(&ping_top);
-    right_modules.push_back(&datetime_top);
+    //right_modules.push_back(&datetime_top);
 
     if (debug_log) {
         FILE* debug = fopen("/tmp/myBar_debug.log", "a");
