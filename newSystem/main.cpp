@@ -19,12 +19,16 @@
 #include <fstream>
 #include <libgen.h>
 #include <algorithm>
+#include <thread>
+#include <atomic>
+#include <mutex>
+#include <condition_variable>
 #include <chrono>
 
 // --- MÓDULOS PROPIOS ---
 #include "modules/datetime.h"
-//#include "modules/battery.h"
-//#include "modules/audio.h"
+#include "modules/battery.h"
+#include "modules/audio.h"
 #include "modules/workspace.h"
 //#include "modules/resources.h"
 //#include "modules/ping.h"
@@ -48,8 +52,17 @@
 
 class BarManager; // Forward declaration
 
-// Variable global para manejo de señales
-static bool g_shutdown = false;
+// Variables globales para manejo de señales y múltiples barras
+static std::atomic<bool> g_shutdown(false);
+
+// Referencias globales para callbacks de click (compatible con hilos)
+static BarManager* g_bar_managers[2] = {nullptr, nullptr};
+static std::mutex g_bar_manager_mutex;
+
+// Sincronización para inicialización secuencial
+static std::mutex g_init_mutex;
+static std::condition_variable g_init_cv;
+static bool g_top_ready = false;
 
 class BarManager {
 public:
@@ -101,14 +114,23 @@ public:
 
       setvbuf(stdout, NULL, _IONBF, 0);
 
-      fprintf(stderr, "[BarManager] Barra inicializada y lista\n");
+      // Si es la barra superior, notificar que está lista
+      if (this->isTop) {
+          {
+              std::lock_guard<std::mutex> lock(g_init_mutex);
+              g_top_ready = true;
+          }
+          g_init_cv.notify_one();
+          fprintf(stderr, "[BarManager] Barra superior inicializada y lista\n");
+      }
+
       return true;
   }
 
-  void run() {
-      render_bar(); // Initial render
+   void run() {
+       render_bar(); // Initial render
 
-      while (!g_shutdown) {
+       while (!g_shutdown.load()) {
           struct timeval tv;
           fd_set fds;
           struct timespec ts;
@@ -218,67 +240,17 @@ int i3_fd = workspace ? workspace->setup_select_fds(fds) : -1; // Escuchar cambi
       }
   }
 
-  //void markForUpdate(const std::string& moduleName) {
-      //auto it = std::find_if(modules.begin(), modules.end(),
-          //[&moduleName](Module* m) { return m->getName() == moduleName; });
-      //if (it != modules.end()) {
-          //(*it)->markForUpdate();
-      //}
-  //}
-
   bool hasUpdates() const {
       return any_updated;
   }
 
-  //void setAllAutoUpdate(bool enabled) {
-      //for (auto* module : modules) {
-          //module->setAutoUpdate(enabled);
-      //}
-  //}
-
   void render_bar() {
       // Los módulos ya se actualizaron a través del scheduler
-      //char buf[8000];
       static int renderCount = 0;
 
-      //// Construir buffer
-      //std::string output = "%{l}";
-
-      //// Módulos izquierdos con separadores
-      //bool first_left = true;
-      //for (Module* module : leftModules) {
-          //if (!first_left) {
-              //output += "%{F" + std::string(COLOR_SEP) + "}" + SEP_SYM + "%{F-}";
-          //}
-          //first_left = false;
-
-          //output += "%{F" + std::string(COLOR_FG) + "}";
-          //output += module->getBuffer();
-      //}
-
-      //output += "%{r}";
-
-      //// Módulos derechos con separadores
-      //bool first = true;
-      //for (Module* module : rightModules) {
-          //if (!first) {
-              //output += "%{F" + std::string(COLOR_SEP) + "}" + SEP_SYM + "%{F-}";
-          //}
-          //first = false;
-
-          //output += "%{F" + std::string(COLOR_FG) + "}";
-          //output += module->getBuffer();
-      //}
-
-      //output += " %{F" + std::string(COLOR_SEP) + "}\n";
-
-      //int n = snprintf(buf, sizeof(buf), "%s", output.c_str());
-      //if (n > 0) {
-          renderCount++;
-          fprintf(stderr, "[BarManager] Rendering bar with content, num: %i", renderCount);
-          //std::cout << std::endl << std::endl << "main.cpp estoy" << elements[0]->content << " len " << elements[0]->contentLen << std::endl << std::endl << std::endl;
-          bar->feed();
-      //}
+      renderCount++;
+      fprintf(stderr, "[BarManager] Rendering bar with content, num: %i", renderCount);
+      bar->feed();
   }
 
   void handle_x_events(fd_set &fds) {
@@ -289,7 +261,7 @@ int i3_fd = workspace ? workspace->setup_select_fds(fds) : -1; // Escuchar cambi
   }
 };
 
-// --- MAIN LOOP SIMPLIFICADO ---
+// --- MAIN LOOP CON HILOS ---
 int main(int argc, char* argv[]) {
     bool restart_mode = false;
     bool no_lock = false;
@@ -356,60 +328,128 @@ int main(int argc, char* argv[]) {
 
     // Inicializar BarManager
     if (debug_log) {
-        fprintf(debug_log, "Iniciando inicialización de barra única...\n");
+        fprintf(debug_log, "Iniciando inicialización secuencial de barras...\n");
         fflush(debug_log);
     }
 
-    // Crear módulos para la barra superior
-    static DateTimeModule datetime_top;
-    static PingModule ping_top;
+    // Crear módulos fuera de los hilos para evitar problemas de lifetime
     static WorkspaceModule workspace_top;
+    static AudioModule audio_top;
+    static BatteryModule battery_top;
+    static DateTimeModule datetime_top;
 
-    std::vector<Module*> left_modules;
-    left_modules.push_back(&workspace_top);
-    left_modules.push_back(&datetime_top);
+    // Módulos para barra inferior
+    static PingModule ping_bottom;
+    static AudioModule audio_bottom;
 
-    std::vector<Module*> right_modules;
-    right_modules.push_back(&ping_top);
-    //right_modules.push_back(&datetime_top);
+    // Thread para inicializar y ejecutar barra superior
+    std::thread top_thread([debug_log]() {
+        std::vector<Module*> left_modules;
+        left_modules.push_back(&workspace_top);
 
-    if (debug_log) {
-        FILE* debug = fopen("/tmp/myBar_debug.log", "a");
-        fprintf(debug, "Creando BarManager para barra superior...\n");
-        fclose(debug);
+        std::vector<Module*> right_modules;
+        right_modules.push_back(&audio_top);
+        right_modules.push_back(&battery_top);
+
+        BarManager barTop(
+          "topBar",
+          true,
+          left_modules,
+          right_modules
+        );
+
+        // Registrar referencia global para callbacks
+        {
+            std::lock_guard<std::mutex> lock(g_bar_manager_mutex);
+            g_bar_managers[0] = &barTop;
+        }
+
+        if (debug_log) {
+            FILE* debug = fopen("/tmp/myBar_debug.log", "a");
+            fprintf(debug, "Iniciando inicialización barra superior...\n");
+            fclose(debug);
+        }
+
+        if (!barTop.initialize()) {
+            fprintf(stderr, "Failed to initialize top BarManager\n");
+            return;
+        }
+
+        if (debug_log) {
+            FILE* debug = fopen("/tmp/myBar_debug.log", "a");
+            fprintf(debug, "Barra superior lista, iniciando run()...\n");
+            fclose(debug);
+        }
+
+        barTop.run();
+    });
+
+    // Esperar a que la barra superior esté completamente inicializada
+    {
+        std::unique_lock<std::mutex> lock(g_init_mutex);
+        g_init_cv.wait(lock, []{ return g_top_ready; });
     }
 
-    BarManager barTop(
-      "topBar",
-      true,
-      left_modules,
-      right_modules
-    );
-
     if (debug_log) {
-        FILE* debug = fopen("/tmp/myBar_debug.log", "a");
-        fprintf(debug, "Iniciando inicialización barra superior...\n");
-        fclose(debug);
-    }
-
-    if (!barTop.initialize()) {
-        fprintf(stderr, "Failed to initialize top BarManager\n");
-        return 1;
-    }
-
-    if (debug_log) {
-        FILE* debug = fopen("/tmp/myBar_debug.log", "a");
-        fprintf(debug, "Barra superior lista, iniciando run()...\n");
-        fclose(debug);
-    }
-
-    if (debug_log) {
-        fprintf(debug_log, "Barra en ejecución modo single-thread\n");
+        fprintf(debug_log, "Barra superior lista, iniciando barra inferior...\n");
         fflush(debug_log);
     }
 
-    // Ejecutar la barra directamente (sin hilos)
-    barTop.run();
+    // Thread para inicializar y ejecutar barra inferior
+    std::thread bottom_thread([debug_log]() {
+        std::vector<Module*> left_modules;
+        left_modules.push_back(&datetime_top);
+
+        std::vector<Module*> right_modules;
+        right_modules.push_back(&ping_bottom);
+        right_modules.push_back(&audio_bottom);
+
+        BarManager barBottom(
+          "bottomBar",
+          false,
+          left_modules,
+          right_modules
+        );
+
+        // Registrar referencia global para callbacks
+        {
+            std::lock_guard<std::mutex> lock(g_bar_manager_mutex);
+            g_bar_managers[1] = &barBottom;
+        }
+
+        if (debug_log) {
+            FILE* debug = fopen("/tmp/myBar_debug.log", "a");
+            fprintf(debug, "Iniciando inicialización barra inferior...\n");
+            fclose(debug);
+        }
+
+        if (!barBottom.initialize()) {
+            fprintf(stderr, "Failed to initialize bottom BarManager\n");
+            return;
+        }
+
+        if (debug_log) {
+            FILE* debug = fopen("/tmp/myBar_debug.log", "a");
+            fprintf(debug, "Barra inferior lista, iniciando run()...\n");
+            fclose(debug);
+        }
+
+        barBottom.run();
+    });
+
+    if (debug_log) {
+        fprintf(debug_log, "Ambas barras en ejecución en hilos separados\n");
+        fflush(debug_log);
+    }
+
+    if (debug_log) {
+        fprintf(debug_log, "Ambas barras iniciadas, esperando...\n");
+        fflush(debug_log);
+    }
+
+    // Esperar a que los hilos terminen
+    top_thread.join();
+    bottom_thread.join();
 
     // Cleanup al salir (normalmente no se llega aquí por signal handlers)
     if (debug_log) {
