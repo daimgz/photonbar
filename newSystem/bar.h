@@ -677,7 +677,6 @@ select_drawable_font (const uint32_t c)
             if (!cur_font) ucs = '?';
 
             if (cur_font && cur_font->xft_ft) {
-                std::cout << "llegua acá xft" << std::endl;
                 char_width = xft_char_width(ucs, cur_font);
             } else {
                 char_width = (cur_font->width_lut) ?
@@ -754,20 +753,161 @@ select_drawable_font (const uint32_t c)
         }
     }
 
+    int renderSeparatorAt(monitor_t* cur_mon, int current_x) {
+        // Usar colores por defecto para el separador
+        backgroundColor = defaultBackgroundColor;
+        foregroundColor = defaultForegroundColor;
+        update_gc();
+
+        // Renderizar separador con soporte UTF-8
+        const char* sep_string = " ▏";
+        int pos_x = current_x;
+
+        // Renderizar cada carácter del separador con decodificación UTF-8
+        const char* p = sep_string;
+        while (*p != '\0') {
+            uint32_t ucs;
+            
+            // Decodificación UTF-8 simplificada
+            const uint8_t *utf = (const uint8_t *)p;
+            if (utf[0] < 0x80) {
+                // Carácter ASCII (1 byte)
+                ucs = utf[0];
+                p += 1;
+            } else if ((utf[0] & 0xe0) == 0xc0) {
+                // UTF-8 de 2 bytes
+                ucs = (utf[0] & 0x1f) << 6 | (utf[1] & 0x3f);
+                p += 2;
+            } else if ((utf[0] & 0xf0) == 0xe0) {
+                // UTF-8 de 3 bytes (como ▏)
+                ucs = (utf[0] & 0xf) << 12 | (utf[1] & 0x3f) << 6 | (utf[2] & 0x3f);
+                p += 3;
+            } else if ((utf[0] & 0xf8) == 0xf0) {
+                // UTF-8 de 4 bytes
+                ucs = (utf[0] & 0x07) << 18 | (utf[1] & 0x3f) << 12 | (utf[2] & 0x3f) << 6 | (utf[3] & 0x3f);
+                p += 4;
+            } else {
+                // Byte inválido, tratar como ASCII
+                ucs = utf[0];
+                p += 1;
+            }
+
+            font_t *cur_font = select_drawable_font(ucs);
+            if (!cur_font) ucs = '?';
+
+            if (cur_font->ptr) {
+                xcb_change_gc(c, gc[GC_DRAW] , XCB_GC_FONT,
+                    (const uint32_t []) { cur_font->ptr });
+            }
+
+            draw_char(cur_mon, cur_font, pos_x, ALIGN_L, ucs);
+
+            int char_width;
+            if (cur_font->xft_ft) {
+                char_width = xft_char_width(ucs, cur_font);
+            } else {
+                char_width = (cur_font->width_lut && ucs >= cur_font->char_min && ucs <= cur_font->char_max) ?
+                    cur_font->width_lut[ucs - cur_font->char_min].character_width:
+                    cur_font->width;
+            }
+
+            pos_x += char_width;
+        }
+
+        return pos_x;
+    }
+
     void renderAllElements() {
         monitor_t* cur_mon = monhead;
 
-        // Renderizar elementos izquierdos
-        for (Module* module : left_modules) {
+        // Renderizar elementos izquierdos con separadores
+        int current_x = 0;
+        for (size_t i = 0; i < left_modules.size(); i++) {
+            Module* module = left_modules[i];
+
+            // Renderizar todos los elementos del módulo actual
             for (BarElement* element : module->getElements()) {
+                element->beginX = current_x;
                 renderElement(element, cur_mon);
+                current_x += element->width;
+            }
+
+            // Agregar separador excepto después del último módulo
+            if (i < left_modules.size() - 1) {
+                current_x = renderSeparatorAt(cur_mon, current_x);
             }
         }
 
-        // Renderizar elementos derechos
+        // Renderizar elementos derechos con separadores
+        // Para derecha, necesitamos calcular el ancho total primero
+        int total_right_width = 0;
         for (Module* module : right_modules) {
             for (BarElement* element : module->getElements()) {
+                total_right_width += element->width;
+            }
+        }
+
+        // Ancho total de separadores derechos
+        int right_separator_count = (right_modules.size() > 0) ? (right_modules.size() - 1) : 0;
+        int separator_width = 0;
+
+        // Calcular ancho del separador con soporte UTF-8
+        const char* sep_string = " ▏";
+        separator_width = 0;
+
+        const char* p = sep_string;
+        while (*p != '\0') {
+            uint32_t ucs;
+            
+            // Decodificación UTF-8 simplificada
+            const uint8_t *utf = (const uint8_t *)p;
+            if (utf[0] < 0x80) {
+                // ASCII (1 byte)
+                ucs = utf[0]; p += 1;
+            } else if ((utf[0] & 0xe0) == 0xc0) {
+                // UTF-8 2 bytes
+                ucs = (utf[0] & 0x1f) << 6 | (utf[1] & 0x3f); p += 2;
+            } else if ((utf[0] & 0xf0) == 0xe0) {
+                // UTF-8 3 bytes (como ▏)
+                ucs = (utf[0] & 0xf) << 12 | (utf[1] & 0x3f) << 6 | (utf[2] & 0x3f); p += 3;
+            } else if ((utf[0] & 0xf8) == 0xf0) {
+                // UTF-8 4 bytes
+                ucs = (utf[0] & 0x07) << 18 | (utf[1] & 0x3f) << 12 | (utf[2] & 0x3f) << 6 | (utf[3] & 0x3f); p += 4;
+            } else {
+                // Byte inválido
+                ucs = utf[0]; p += 1;
+            }
+            
+            font_t *cur_font = select_drawable_font(ucs);
+            if (cur_font) {
+                if (cur_font->xft_ft) {
+                    separator_width += xft_char_width(ucs, cur_font);
+                } else {
+                    separator_width += (cur_font->width_lut && ucs >= cur_font->char_min && ucs <= cur_font->char_max) ?
+                        cur_font->width_lut[ucs - cur_font->char_min].character_width:
+                        cur_font->width;
+                }
+            }
+        }
+
+        int total_right_with_separators = total_right_width + (right_separator_count * separator_width);
+
+        // Posicionar elementos derechos de derecha a izquierda
+        current_x = cur_mon->width - total_right_with_separators;
+
+        for (size_t i = 0; i < right_modules.size(); i++) {
+            Module* module = right_modules[i];
+
+            // Renderizar elementos del módulo actual
+            for (BarElement* element : module->getElements()) {
+                element->beginX = current_x;
                 renderElement(element, cur_mon);
+                current_x += element->width;
+            }
+
+            // Agregar separador excepto después del último módulo
+            if (i < right_modules.size() - 1) {
+                current_x = renderSeparatorAt(cur_mon, current_x);
             }
         }
     }
@@ -1394,7 +1534,7 @@ init (char *wm_name, char *wm_instance)
     if (!monhead) {
         fprintf(stderr, "[init] Creating fallback monitor: bw=%d, bh=%d, bx=%d, by=%d, screen_width=%d, screen_height=%d, maxh=%d\n",
                 bw, bh, bx, by, scr->width_in_pixels, scr->height_in_pixels, maxh);
-        
+
         // If I fits I sits
         if (bw < 0)
             bw = scr->width_in_pixels - bx;

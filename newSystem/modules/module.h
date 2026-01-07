@@ -60,7 +60,6 @@ class Module {
     }
 
     bool checkAndUpdate() {
-      std::cout << "llega a preguntar si se puede actualizar" << std::endl;
       if (shouldUpdate()) {
         std::cout << "se actualiza el modulo " << name << std::endl;
         update();

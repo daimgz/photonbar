@@ -65,9 +65,6 @@ public:
     isTop(isTop),
     xcb_fd(-1)
   {
-    if (leftModules.empty())
-      return;
-
     // Guardar las direcciones de los módulos pasados por parámetro
     for (Module* module : leftModules) {
         modules.push_back(module);
@@ -372,10 +369,11 @@ int main(int argc, char* argv[]) {
     static PingModule ping_top;
 
     std::vector<Module*> left_modules;
-    left_modules.push_back(&datetime_top);
+    //left_modules.push_back(&datetime_top);
 
     std::vector<Module*> right_modules;
     right_modules.push_back(&ping_top);
+    right_modules.push_back(&datetime_top);
 
     if (debug_log) {
         FILE* debug = fopen("/tmp/myBar_debug.log", "a");
