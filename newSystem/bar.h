@@ -808,6 +808,7 @@ select_drawable_font (const uint32_t c)
 
     void parseModules() {
         // === INICIALIZACIÓN ===
+        fprintf(stderr, "[parseModules] monhead=%p\n", (void*)monhead);
         monitor_t* cur_mon = monhead;
 
         // === LIMPIEZA DE MONITORES ===
@@ -1391,6 +1392,9 @@ init (char *wm_name, char *wm_instance)
 #endif
 
     if (!monhead) {
+        fprintf(stderr, "[init] Creating fallback monitor: bw=%d, bh=%d, bx=%d, by=%d, screen_width=%d, screen_height=%d, maxh=%d\n",
+                bw, bh, bx, by, scr->width_in_pixels, scr->height_in_pixels, maxh);
+        
         // If I fits I sits
         if (bw < 0)
             bw = scr->width_in_pixels - bx;
@@ -1398,6 +1402,8 @@ init (char *wm_name, char *wm_instance)
         // Adjust the height
         if (bh < 0 || bh > scr->height_in_pixels)
             bh = maxh + bu + 2;
+
+        fprintf(stderr, "[init] After adjustment: bw=%d, bh=%d\n", bw, bh);
 
         // Check the geometry
         if (bx + bw > scr->width_in_pixels || by + bh > scr->height_in_pixels) {
@@ -1407,6 +1413,7 @@ init (char *wm_name, char *wm_instance)
 
         // If no RandR outputs or Xinerama screens, fall back to using whole screen
         monhead = monitor_new(0, 0, bw, scr->height_in_pixels);
+        fprintf(stderr, "[init] Created monitor: monhead=%p\n", (void*)monhead);
     }
 
     if (!monhead)

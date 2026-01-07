@@ -56,6 +56,7 @@ ${EXEC}: ${OBJS} ${HEADERS}
 # Versión debug
 debug: build ${EXEC}
 debug: CC += ${CFDEBUG}
+debug: CXXFLAGS += -g -O0
 
 # Limpieza
 clean:
