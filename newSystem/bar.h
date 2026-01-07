@@ -676,7 +676,8 @@ select_drawable_font (const uint32_t c)
             font_t *cur_font = select_drawable_font(ucs);
             if (!cur_font) ucs = '?';
 
-            if (cur_font->xft_ft) {
+            if (cur_font && cur_font->xft_ft) {
+                std::cout << "llegua acá xft" << std::endl;
                 char_width = xft_char_width(ucs, cur_font);
             } else {
                 char_width = (cur_font->width_lut) ?

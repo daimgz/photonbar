@@ -17,7 +17,6 @@ private:
     static constexpr const char* ICON_NET   = "\uef09"; // 󪩚 (Pulso/Ping)
     static constexpr const char* ICON_DOWN  = "\uea9d"; //  (Flecha abajo)
     static constexpr const char* ICON_UP    = "\ueaa0"; //  (Flecha arriba)
-    static constexpr const char* ICON_BASIC = "\xef\x9e\x96"; //  (Icono red simple)
 
     unsigned long long last_sent = 0;
     unsigned long long last_recv = 0;
@@ -94,7 +93,7 @@ public:
                 baseElement.content,
                 CONTENT_MAX_LEN,
                 "%s",
-                ICON_BASIC
+                ICON_NET
             );
             baseElement.dirtyContent = true;
             lastUpdate = time(nullptr);
