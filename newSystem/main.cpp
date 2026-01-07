@@ -79,7 +79,6 @@ public:
         module->setRenderFunction([this]() { render_bar(); });
         if (module->getName() == "workspace") {
             workspace = static_cast<WorkspaceModule*>(module);
-            break;
         }
     }
 
