@@ -64,7 +64,7 @@ class WeatherModule : public Module {
 
       // Configurar elemento base
       baseElement.moduleName = name;
-      
+
       // Click izquierdo: toggle detalles
       baseElement.setEvent(BarElement::CLICK_LEFT, [this]() {
         show_details = !show_details;
@@ -76,7 +76,7 @@ class WeatherModule : public Module {
 
       // Color base del texto
       baseElement.foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
-      
+
       elements.push_back(&baseElement);
     }
 
@@ -100,6 +100,7 @@ class WeatherModule : public Module {
       }
 
       generateBuffer();
+      lastUpdate = time(nullptr);
     }
 
   private:
@@ -263,9 +264,9 @@ class WeatherModule : public Module {
         "%s",
         content.c_str()
       );
-      
+
       baseElement.dirtyContent = true;
-      
+
       // Cambiar color según estado
       if (temperature > 30) {
         // Muy caliente - rojo
