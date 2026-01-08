@@ -166,7 +166,7 @@ int i3_fd = workspace ? workspace->setup_select_fds(fds) : -1; // Escuchar cambi
               break;
           }
 
-           bool workspace_changed = workspace ? workspace->handle_i3_events(fds) : false;
+           bool workspace_changed = workspace ? workspace->handleI3Events(fds) : false;
 
            // Procesar eventos X - estos pueden generar clicks que se manejan por separado
            if (xcb_fd != -1 && FD_ISSET(xcb_fd, &fds)) {

@@ -25,20 +25,20 @@ class SpaceModule : public Module {
     // Configuración
     const std::string partition;
     const std::string name;
-    int display_mode;
+    int displayMode;
 
     // Estado del disco
-    double free_gb;
-    double used_percentage;
-    time_t cache_until;
+    double freeGb;
+    double usedPercentage;
+    time_t cacheUntil;
 
     void getSpaceUsage() {
       struct statvfs vfs;
       if (statvfs(partition.c_str(), &vfs) != 0) {
         fprintf(stderr, "[SpaceModule] Error accessing %s\n", partition.c_str());
-        free_gb = 0.0;
-        used_percentage = 0.0;
-        cache_until = 0;
+        freeGb = 0.0;
+        usedPercentage = 0.0;
+        cacheUntil = 0;
         return;
       }
 
@@ -47,12 +47,12 @@ class SpaceModule : public Module {
       unsigned long free_blocks = vfs.f_bavail;
       unsigned long total_blocks = vfs.f_blocks;
 
-      free_gb = (double)(free_blocks * block_size) / (1024.0 * 1024.0 * 1024.0);
+      freeGb = (double)(free_blocks * block_size) / (1024.0 * 1024.0 * 1024.0);
       double used_gb = (double)((total_blocks - free_blocks) * block_size) / (1024.0 * 1024.0 * 1024.0);
       double total_gb = (double)(total_blocks * block_size) / (1024.0 * 1024.0 * 1024.0);
 
-      used_percentage = (used_gb / total_gb) * 100.0;
-      cache_until = time(nullptr) + 1; // Cache por 1 segundo
+      usedPercentage = (used_gb / total_gb) * 100.0;
+      cacheUntil = time(nullptr) + 1; // Cache por 1 segundo
     }
 
 
@@ -62,14 +62,14 @@ class SpaceModule : public Module {
       Module("space", false, 30),  // No auto-update, cada 30 segundos
       partition("/"),
       name("\uf0c7"),
-      display_mode(0)
+      displayMode(0)
     {
       // Configurar elemento base
       baseElement.moduleName = name;
 
       // Click izquierdo: ciclar entre modos de visualización
       baseElement.setEvent(BarElement::CLICK_LEFT, [this]() {
-        display_mode = (display_mode + 1) % NUM_DISPLAY_MODES;
+        displayMode = (displayMode + 1) % NUM_DISPLAY_MODES;
         update();
         if (renderFunction) {
           renderFunction();
@@ -78,7 +78,7 @@ class SpaceModule : public Module {
 
       // Click derecho: también ciclar entre modos (igual que izquierdo en original)
       baseElement.setEvent(BarElement::CLICK_RIGHT, [this]() {
-        display_mode = (display_mode + 1) % NUM_DISPLAY_MODES;
+        displayMode = (displayMode + 1) % NUM_DISPLAY_MODES;
         update();
         if (renderFunction) {
           renderFunction();
@@ -95,7 +95,7 @@ class SpaceModule : public Module {
       getSpaceUsage();
 
       // Generar texto según modo actual usando snprintf estándar
-      int mode_idx = display_mode % NUM_DISPLAY_MODES;
+      int mode_idx = displayMode % NUM_DISPLAY_MODES;
       
       switch(mode_idx) {
         case DISPLAY_FREE:
@@ -104,7 +104,7 @@ class SpaceModule : public Module {
             CONTENT_MAX_LEN,
             "%s %.2fGB",
             name.c_str(),
-            free_gb
+            freeGb
           );
           break;
         case DISPLAY_USED_PERCENTAGE:
@@ -113,7 +113,7 @@ class SpaceModule : public Module {
             CONTENT_MAX_LEN,
             "%s %.0f%%",
             name.c_str(),
-            used_percentage
+            usedPercentage
           );
           break;
         default:
@@ -122,7 +122,7 @@ class SpaceModule : public Module {
             CONTENT_MAX_LEN,
             "%s %.2fGB",
             name.c_str(),
-            free_gb
+            freeGb
           );
           break;
       }

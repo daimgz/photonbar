@@ -20,38 +20,38 @@ class WorkspaceModule : public Module {
   public:
     WorkspaceModule() : Module("workspace", true, 1) {
       initialize();
-      initialize_elements();
+      initializeElements();
     }
 
     ~WorkspaceModule() {
-      clear_elements();
+      clearElements();
     }
 
     void update() {
-      update_elements();
+      updateElements();
     }
 
     bool initialize() {
-      i3_fd = subscribe_i3();
-      return i3_fd != -1;
+      i3Fd = subscribeI3();
+      return i3Fd != -1;
     }
 
     int setup_select_fds(fd_set &fds) {
-      if (i3_fd != -1) {
-        FD_SET(i3_fd, &fds);
-        return i3_fd;
+      if (i3Fd != -1) {
+        FD_SET(i3Fd, &fds);
+        return i3Fd;
       }
       return -1;
     }
 
-    bool handle_i3_events(fd_set &fds);
+    bool handleI3Events(fd_set &fds);
 
   private:
-    int i3_fd;
-    std::vector<BarElement*> workspace_elements;
+    int i3Fd;
+    std::vector<BarElement*> workspaceElements;
 
-    void initialize_elements() {
-      clear_elements();
+    void initializeElements() {
+      clearElements();
       
       I3ipc_reply_workspaces* reply = i3ipc_get_workspaces();
       if (!reply) return;
@@ -69,7 +69,7 @@ class WorkspaceModule : public Module {
         // Set click event
         std::string ws_name = reply->workspaces[i].name;
         element->setEvent(BarElement::CLICK_LEFT, [this, ws_name]() {
-          switch_to_workspace(ws_name.c_str());
+          switchToWorkspace(ws_name.c_str());
         });
         
         // Set styling
@@ -82,28 +82,28 @@ class WorkspaceModule : public Module {
           element->underline = false;
         }
         
-        workspace_elements.push_back(element);
+        workspaceElements.push_back(element);
         elements.push_back(element);
       }
       
       free(reply);
     }
 
-    void clear_elements() {
-      for (BarElement* element : workspace_elements) {
+    void clearElements() {
+      for (BarElement* element : workspaceElements) {
         elements.erase(std::remove(elements.begin(), elements.end(), element), elements.end());
         delete element;
       }
-      workspace_elements.clear();
+      workspaceElements.clear();
     }
 
-    void update_elements() {
+    void updateElements() {
       I3ipc_reply_workspaces* reply = i3ipc_get_workspaces();
       if (!reply) return;
 
       // Update existing elements
-      for (size_t i = 0; i < workspace_elements.size() && i < (size_t)reply->workspaces_size; ++i) {
-        BarElement* element = workspace_elements[i];
+      for (size_t i = 0; i < workspaceElements.size() && i < (size_t)reply->workspaces_size; ++i) {
+        BarElement* element = workspaceElements[i];
         
         // Update content
         element->contentLen = snprintf(element->content, CONTENT_MAX_LEN - 1, 
@@ -123,14 +123,14 @@ class WorkspaceModule : public Module {
       }
       
       // Handle workspace count changes
-      if ((size_t)reply->workspaces_size != workspace_elements.size()) {
-        initialize_elements();
+      if ((size_t)reply->workspaces_size != workspaceElements.size()) {
+        initializeElements();
       }
       
       free(reply);
     }
 
-    void switch_to_workspace(const char* ws_name) {
+    void switchToWorkspace(const char* ws_name) {
       // Execute workspace switch
       if (fork() == 0) {
         execlp("i3-msg", "i3-msg", "workspace", ws_name, NULL);
@@ -143,7 +143,7 @@ class WorkspaceModule : public Module {
       }
     }
 
-    int subscribe_i3() {
+    int subscribeI3() {
       int pipefd[2];
       if (pipe(pipefd) == -1) return -1;
 
@@ -168,7 +168,7 @@ class WorkspaceModule : public Module {
       }
     }
 
-    bool is_workspace_event(const char* json_data) {
+    bool isWorkspaceEvent(const char* json_data) {
       return strstr(json_data, "\"change\":\"focus\"") ||
              strstr(json_data, "\"change\":\"init\"") ||
              strstr(json_data, "\"change\":\"empty\"") ||
@@ -176,29 +176,29 @@ class WorkspaceModule : public Module {
     }
 };
 
-inline bool WorkspaceModule::handle_i3_events(fd_set &fds) {
+inline bool WorkspaceModule::handleI3Events(fd_set &fds) {
   bool workspace_changed = false;
 
-  if (i3_fd != -1 && FD_ISSET(i3_fd, &fds)) {
+  if (i3Fd != -1 && FD_ISSET(i3Fd, &fds)) {
     char buffer[4096];
     ssize_t bytes_read;
     
-    while ((bytes_read = read(i3_fd, buffer, sizeof(buffer) - 1)) > 0) {
+    while ((bytes_read = read(i3Fd, buffer, sizeof(buffer) - 1)) > 0) {
       buffer[bytes_read] = '\0';
       
-      if (is_workspace_event(buffer)) {
+      if (isWorkspaceEvent(buffer)) {
         workspace_changed = true;
         break;
       }
     }
 
     if (bytes_read == 0) {
-      close(i3_fd);
-      i3_fd = subscribe_i3();
+      close(i3Fd);
+      i3Fd = subscribeI3();
     }
 
     if (workspace_changed) {
-      update_elements();
+      updateElements();
     }
   }
 

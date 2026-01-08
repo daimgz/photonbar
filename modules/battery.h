@@ -46,55 +46,55 @@ BatteryModule() : Module("battery", false, 5) {
     }
 
     void update() override {
-        update_battery_info();
+        updateBatteryInfo();
     }
 
 private:
     BarElement iconElement;
     BarElement textElement;
-    long energy_now = 0, energy_full = 0, power_now = 0;
+    long energyNow = 0, energyFull = 0, powerNow = 0;
     char status[32] = "Unknown";
     float percentage = 0.0;
 
-    void update_battery_info() {
+    void updateBatteryInfo() {
         // Resetear valores
-        energy_now = energy_full = power_now = 0;
+        energyNow = energyFull = powerNow = 0;
         strcpy(status, "Unknown");
         percentage = 0.0;
 
         // Leer información del sistema
-        FILE *f_now = fopen("/sys/class/power_supply/BAT0/energy_now", "r");
+        FILE *f_now = fopen("/sys/class/power_supply/BAT0/energyNow", "r");
         if (!f_now) f_now = fopen("/sys/class/power_supply/BAT0/charge_now", "r");
 
-        FILE *f_full = fopen("/sys/class/power_supply/BAT0/energy_full", "r");
+        FILE *f_full = fopen("/sys/class/power_supply/BAT0/energyFull", "r");
         if (!f_full) f_full = fopen("/sys/class/power_supply/BAT0/charge_full", "r");
 
-        FILE *f_pow = fopen("/sys/class/power_supply/BAT0/power_now", "r");
+        FILE *f_pow = fopen("/sys/class/power_supply/BAT0/powerNow", "r");
         if (!f_pow) f_pow = fopen("/sys/class/power_supply/BAT0/current_now", "r");
 
         FILE *f_stat = fopen("/sys/class/power_supply/BAT0/status", "r");
 
         // Obtener valores
         if (f_now && f_full) {
-            fscanf(f_now, "%ld", &energy_now);
-            fscanf(f_full, "%ld", &energy_full);
-            if (energy_full > 0) percentage = ((float)energy_now / (float)energy_full) * 100.0;
+            fscanf(f_now, "%ld", &energyNow);
+            fscanf(f_full, "%ld", &energyFull);
+            if (energyFull > 0) percentage = ((float)energyNow / (float)energyFull) * 100.0;
             fclose(f_now); fclose(f_full);
         }
-        if (f_pow) { fscanf(f_pow, "%ld", &power_now); fclose(f_pow); }
+        if (f_pow) { fscanf(f_pow, "%ld", &powerNow); fclose(f_pow); }
         if (f_stat) { fscanf(f_stat, "%s", status); fclose(f_stat); }
 
         // Obtener icono apropiado
-        const char* icon = get_battery_icon();
+        const char* icon = getBatteryIcon();
 
         // Actualizar contenido de los elementos
-        if (power_now > 0 && (strcmp(status, "Discharging") == 0 || strcmp(status, "Charging") == 0)) {
+        if (powerNow > 0 && (strcmp(status, "Discharging") == 0 || strcmp(status, "Charging") == 0)) {
             // Mostrar tiempo restante o de carga
             float time_float;
             if (strcmp(status, "Discharging") == 0)
-                time_float = (float)energy_now / power_now;
+                time_float = (float)energyNow / powerNow;
             else
-                time_float = (float)(energy_full - energy_now) / power_now;
+                time_float = (float)(energyFull - energyNow) / powerNow;
 
             int hours = (int)time_float;
             int minutes = (int)((time_float - hours) * 60);
@@ -144,12 +144,12 @@ private:
         }
 
         // Actualizar color según estado
-        update_colors();
+        updateColors();
 
         lastUpdate = time(nullptr);
     }
 
-    const char* get_battery_icon() {
+    const char* getBatteryIcon() {
         if (strcmp(status, "Charging") == 0) {
             if (percentage >= 95) return ICON_BATTERY_CHARGING_100;
             else if (percentage >= 90) return ICON_BATTERY_CHARGING_90;
@@ -177,7 +177,7 @@ private:
         }
     }
 
-void update_colors() {
+void updateColors() {
         // Color del texto: siempre morado (para ambos elementos)
         textElement.foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255)); // Morado
 

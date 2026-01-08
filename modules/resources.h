@@ -10,7 +10,7 @@
 
 class ResourcesModule : public Module {
   private:
-    double last_total = 0, last_idle = 0;
+    double lastTotal = 0, lastIdle = 0;
 
     // Elementos de la UI
     BarElement ramElement;
@@ -40,7 +40,7 @@ class ResourcesModule : public Module {
       elements.push_back(&tempElement);
     }
 
-    float get_ram_usage() {
+    float getRamUsage() {
       std::ifstream file("/proc/meminfo");
       std::string line;
       double total = 0, avail = 0;
@@ -52,7 +52,7 @@ class ResourcesModule : public Module {
       return (float)((1.0 - (avail / total)) * 100.0);
     }
 
-    float get_cpu_usage() {
+    float getCpuUsage() {
       std::ifstream file("/proc/stat");
       std::string cpu_label;
       double u, n, s, i, io, irq, sirq, steal;
@@ -60,19 +60,19 @@ class ResourcesModule : public Module {
 
       double idle_now = i + io;
       double total_now = u + n + s + i + io + irq + sirq + steal;
-      double diff_total = total_now - last_total;
-      double diff_idle = idle_now - last_idle;
+      double diff_total = total_now - lastTotal;
+      double diff_idle = idle_now - lastIdle;
 
-      last_total = total_now;
-      last_idle = idle_now;
+      lastTotal = total_now;
+      lastIdle = idle_now;
 
       if (diff_total <= 0) return 0.0f;
       return (float)((1.0 - (diff_idle / diff_total)) * 100.0);
     }
 
     void update() override {
-      float ram = get_ram_usage();
-      float cpu = get_cpu_usage();
+      float ram = getRamUsage();
+      float cpu = getCpuUsage();
 
       float temp = 0.0f;
 

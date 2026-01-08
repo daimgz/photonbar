@@ -21,13 +21,13 @@ private:
     std::vector<BarElement*> allElements;
 
     // Estado del timer (igual que el sistema viejo)
-    std::chrono::steady_clock::time_point start_time;
-    std::chrono::steady_clock::time_point pause_time;
-    bool is_running = false;
-    bool is_paused = false;
-    bool show_details = false;
-    long long accumulated_pause_time = 0;
-    long long target_duration_ms = 0;
+    std::chrono::steady_clock::time_point startTime;
+    std::chrono::steady_clock::time_point pauseTime;
+    bool isRunning = false;
+    bool isPaused = false;
+    bool showDetails = false;
+    long long accumulatedPauseTime = 0;
+    long long targetDurationMs = 0;
 
     static constexpr const char* ICON_PLAY = " \uf04b";
     static constexpr const char* ICON_PAUSE = " \uf04c";
@@ -35,49 +35,49 @@ private:
 
     // Ya no necesitamos esta función - el timer debe seguir corriendo visualmente
 
-    long long get_remaining_ms() {
-        if (!is_running) return target_duration_ms;
+    long long getRemainingMs() {
+        if (!isRunning) return targetDurationMs;
 
         auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time);
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime);
 
         long long actual_elapsed;
-        if (is_paused) {
-            auto pause_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(pause_time - start_time);
-            actual_elapsed = pause_elapsed.count() - accumulated_pause_time;
+        if (isPaused) {
+            auto pause_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(pauseTime - startTime);
+            actual_elapsed = pause_elapsed.count() - accumulatedPauseTime;
         } else {
-            actual_elapsed = elapsed.count() - accumulated_pause_time;
+            actual_elapsed = elapsed.count() - accumulatedPauseTime;
         }
 
-        long long remaining = target_duration_ms - actual_elapsed;
+        long long remaining = targetDurationMs - actual_elapsed;
         return remaining > 0 ? remaining : 0;
     }
 
     void adjustTime(long long ms) {
-        if (is_running) return;
+        if (isRunning) return;
 
-        target_duration_ms += ms;
-        if (target_duration_ms < 0) target_duration_ms = 0;
+        targetDurationMs += ms;
+        if (targetDurationMs < 0) targetDurationMs = 0;
 
         update();
         if (renderFunction) renderFunction();
     }
 
     void playPause() {
-        if (!is_running) {
-            if (target_duration_ms > 0) {
-                start_time = std::chrono::steady_clock::now();
-                is_running = true;
-                is_paused = false;
-                accumulated_pause_time = 0;
+        if (!isRunning) {
+            if (targetDurationMs > 0) {
+                startTime = std::chrono::steady_clock::now();
+                isRunning = true;
+                isPaused = false;
+                accumulatedPauseTime = 0;
             }
-        } else if (is_paused) {
+        } else if (isPaused) {
             auto now = std::chrono::steady_clock::now();
-            accumulated_pause_time += std::chrono::duration_cast<std::chrono::milliseconds>(now - pause_time).count();
-            is_paused = false;
+            accumulatedPauseTime += std::chrono::duration_cast<std::chrono::milliseconds>(now - pauseTime).count();
+            isPaused = false;
         } else {
-            pause_time = std::chrono::steady_clock::now();
-            is_paused = true;
+            pauseTime = std::chrono::steady_clock::now();
+            isPaused = true;
         }
 
         update();
@@ -86,21 +86,21 @@ private:
 
     void reset() {
         // Solo bloquear reset si está corriendo y el tiempo NO se ha agotado
-        if (is_running && !is_paused && get_remaining_ms() > 0) return;
+        if (isRunning && !isPaused && getRemainingMs() > 0) return;
         
-        accumulated_pause_time = 0;
-        target_duration_ms = 0;
+        accumulatedPauseTime = 0;
+        targetDurationMs = 0;
         
         // Cambiar estados al final
-        is_running = false;
-        is_paused = false;
+        isRunning = false;
+        isPaused = false;
 
         update();
         if (renderFunction) renderFunction();
     }
 
     void toggleDetails() {
-        show_details = !show_details;
+        showDetails = !showDetails;
 
         update();
         if (renderFunction) renderFunction();
@@ -156,11 +156,11 @@ private:
 
         // Aplicar colores a todos los elementos según estado
         for (auto* elem : allElements) {
-            if (!is_running) {
+            if (!isRunning) {
                 elem->foregroundColor = defaultColor;
-            } else if (is_paused) {
+            } else if (isPaused) {
                 elem->foregroundColor = orangeColor;
-            } else if (get_remaining_ms() == 0) {
+            } else if (getRemainingMs() == 0) {
                 elem->foregroundColor = redColor;
             } else {
                 elem->foregroundColor = greenColor;
@@ -184,7 +184,7 @@ public:
     void update() override {
         applyColors();
 
-        long long remaining = get_remaining_ms();
+        long long remaining = getRemainingMs();
         int hours = remaining / 3600000;
         int minutes = (remaining % 3600000) / 60000;
         int seconds = (remaining % 60000) / 1000;
@@ -200,9 +200,9 @@ public:
         // El logo siempre necesita actualizarse por cambios de color
         baseElement.dirtyContent = true;
 
-        // Icono play/pause (solo visible cuando show_details = true)
-        if (show_details) {
-            if (!is_running) {
+        // Icono play/pause (solo visible cuando showDetails = true)
+        if (showDetails) {
+            if (!isRunning) {
                 // Cuando no está corriendo pero se muestra, mostrar play
                 playIconElement.contentLen = snprintf(
                     playIconElement.content,
@@ -212,7 +212,7 @@ public:
                 );
             } else {
                 // Cuando está corriendo, mostrar estado actual
-                const char* icon = is_paused ? ICON_PLAY : ICON_PAUSE;
+                const char* icon = isPaused ? ICON_PLAY : ICON_PAUSE;
                 playIconElement.contentLen = snprintf(
                     playIconElement.content,
                     CONTENT_MAX_LEN,
@@ -228,7 +228,7 @@ public:
         }
 
         // Elementos de tiempo
-        if (show_details) {
+        if (showDetails) {
             hourElement.contentLen = snprintf(
                 hourElement.content,
                 CONTENT_MAX_LEN,

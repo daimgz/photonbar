@@ -17,29 +17,29 @@ private:
     std::vector<BarElement*> allElements;
     
     // Estado del stopwatch
-    std::chrono::steady_clock::time_point start_time;
-    std::chrono::steady_clock::time_point pause_time;
-    bool is_running = false;
-    bool is_paused = false;
-    bool show_details = false;
-    long long accumulated_pause_time = 0;
+    std::chrono::steady_clock::time_point startTime;
+    std::chrono::steady_clock::time_point pauseTime;
+    bool isRunning = false;
+    bool isPaused = false;
+    bool showDetails = false;
+    long long accumulatedPauseTime = 0;
 
     static constexpr const char* ICON_PLAY = " \uf04b";
     static constexpr const char* ICON_PAUSE = " \uf04c";
     static constexpr const char* ICON_LOGO = "\uf2f2"; // Icono de reloj más común
 
     long long get_elapsed_ms() {
-        if (!is_running) return 0;
+        if (!isRunning) return 0;
 
         auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time);
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime);
 
-        if (is_paused) {
+        if (isPaused) {
             // Si está pausado, el tiempo transcurrido es hasta la pausa
-            auto pause_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(pause_time - start_time);
-            return pause_elapsed.count() - accumulated_pause_time;
+            auto pause_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(pauseTime - startTime);
+            return pause_elapsed.count() - accumulatedPauseTime;
         } else {
-            return elapsed.count() - accumulated_pause_time;
+            return elapsed.count() - accumulatedPauseTime;
         }
     }
 
@@ -52,21 +52,21 @@ private:
     }
 
     void playPause() {
-        if (!is_running) {
+        if (!isRunning) {
             // Iniciar
-            start_time = std::chrono::steady_clock::now();
-            is_running = true;
-            is_paused = false;
-            accumulated_pause_time = 0;
-        } else if (is_paused) {
+            startTime = std::chrono::steady_clock::now();
+            isRunning = true;
+            isPaused = false;
+            accumulatedPauseTime = 0;
+        } else if (isPaused) {
             // Reanudar
             auto now = std::chrono::steady_clock::now();
-            accumulated_pause_time += std::chrono::duration_cast<std::chrono::milliseconds>(now - pause_time).count();
-            is_paused = false;
+            accumulatedPauseTime += std::chrono::duration_cast<std::chrono::milliseconds>(now - pauseTime).count();
+            isPaused = false;
         } else {
             // Pausar
-            pause_time = std::chrono::steady_clock::now();
-            is_paused = true;
+            pauseTime = std::chrono::steady_clock::now();
+            isPaused = true;
         }
 
         update();
@@ -75,16 +75,16 @@ private:
 
     void reset() {
         // Resetear stopwatch (siempre permitido)
-        is_running = false;
-        is_paused = false;
-        accumulated_pause_time = 0;
+        isRunning = false;
+        isPaused = false;
+        accumulatedPauseTime = 0;
 
         update();
         if (renderFunction) renderFunction();
     }
 
     void toggleDetails() {
-        show_details = !show_details;
+        showDetails = !showDetails;
 
         update();
         if (renderFunction) renderFunction();
@@ -121,9 +121,9 @@ private:
         
         // Aplicar colores a todos los elementos según estado
         for (auto* elem : allElements) {
-            if (!is_running) {
+            if (!isRunning) {
                 elem->foregroundColor = defaultColor;
-            } else if (is_paused) {
+            } else if (isPaused) {
                 elem->foregroundColor = orangeColor;
             } else {
                 elem->foregroundColor = greenColor;
@@ -161,10 +161,10 @@ public:
         baseElement.dirtyContent = true;
 
         // Elemento de tiempo (solo visible en modo detallado)
-        if (show_details) {
+        if (showDetails) {
             const char* action_icon = "";
-            if (is_running) {
-                action_icon = is_paused ? ICON_PLAY : ICON_PAUSE;
+            if (isRunning) {
+                action_icon = isPaused ? ICON_PLAY : ICON_PAUSE;
             }
             
             timeElement.contentLen = snprintf(

@@ -151,7 +151,7 @@ Color
 std::function<void(const char *cmd)> click_cb;
 
 /* Flag to prevent infinite EXPOSE loop */
-bool processing_expose = false;
+bool processingExpose = false;
 
     const std::vector<Module*> left_modules;
     const std::vector<Module*> right_modules;
@@ -192,7 +192,7 @@ inline int get_utf8_char_width(uint32_t ucs, font_t* font) {
     if (!font) return 0;
 
     if (font->xft_ft) {
-        return xft_char_width(ucs, font);
+        return xftCharWidth(ucs, font);
     } else {
         return (font->width_lut && ucs >= font->char_min && ucs <= font->char_max) ?
             font->width_lut[ucs - font->char_min].character_width :
@@ -241,9 +241,7 @@ void setClickHandler(std::function<void(const char *cmd)> cb) {
     click_cb = cb;
 }
 
-void
-update_gc (void)
-{
+void updateGc(void) {
     xcb_change_gc(c, gc[GC_DRAW], XCB_GC_FOREGROUND, (const uint32_t []){ foregroundColor.v });
     xcb_change_gc(c, gc[GC_CLEAR], XCB_GC_FOREGROUND, (const uint32_t []){ backgroundColor.v });
     xcb_change_gc(c, gc[GC_ATTR], XCB_GC_FOREGROUND, (const uint32_t []){ underlineColor.v });
@@ -256,9 +254,7 @@ update_gc (void)
     }
 }
 
-void
-fill_gradient (xcb_drawable_t d, int x, int y, int width, int height, Color start, Color stop)
-{
+void fillGradient(xcb_drawable_t d, int x, int y, int width, int height, Color start, Color stop) {
     float i;
     const int K = 25; // The number of steps
 
@@ -296,10 +292,8 @@ fill_gradient (xcb_drawable_t d, int x, int y, int width, int height, Color star
     xcb_change_gc(c, gc[GC_DRAW], XCB_GC_FOREGROUND, (const uint32_t []){ foregroundColor.v });
 }
 
-void
-fill_rect (xcb_drawable_t d, xcb_gcontext_t _gc, int x, int y, int width, int height)
-{
-    xcb_poly_fill_rectangle(c, d, _gc, 1, (const xcb_rectangle_t []){ { x, y, width, height } });
+void fillRect(xcb_drawable_t d, xcb_gcontext_t _gc, int x, int y, int width, int height) {
+        xcb_poly_fill_rectangle(c, d, _gc, 1, (const xcb_rectangle_t []){ { x, y, width, height } });
 }
 
 // Apparently xcb cannot seem to compose the right request for this call, hence we have to do it by
@@ -348,9 +342,7 @@ xcb_void_cookie_t xcb_poly_text_16_simple(xcb_connection_t * c,
 }
 
 
-int
-xft_char_width_slot (uint32_t ch)
-{
+int xftCharWidthSlot(uint32_t ch) {
     int slot = ch % MAX_WIDTHS;
     while (xft_char[slot] != 0 && xft_char[slot] != ch)
     {
@@ -359,15 +351,14 @@ xft_char_width_slot (uint32_t ch)
     return slot;
 }
 
-int xft_char_width (uint32_t ch, font_t *cur_font)
-{
-    int slot = xft_char_width_slot(ch);
+int xftCharWidth(uint32_t ch, font_t* curFont) {
+    int slot = xftCharWidthSlot(ch);
     if (!xft_char[slot]) {
         XGlyphInfo gi;
-        FT_UInt glyph = XftCharIndex (dpy, cur_font->xft_ft, (FcChar32) ch);
-        XftFontLoadGlyphs (dpy, cur_font->xft_ft, FcFalse, &glyph, 1);
-        XftGlyphExtents (dpy, cur_font->xft_ft, &glyph, 1, &gi);
-        XftFontUnloadGlyphs (dpy, cur_font->xft_ft, &glyph, 1);
+        FT_UInt glyph = XftCharIndex (dpy, curFont->xft_ft, (FcChar32) ch);
+        XftFontLoadGlyphs (dpy, curFont->xft_ft, FcFalse, &glyph, 1);
+        XftGlyphExtents (dpy, curFont->xft_ft, &glyph, 1, &gi);
+        XftFontUnloadGlyphs (dpy, curFont->xft_ft, &glyph, 1);
         xft_char[slot] = ch;
         if (gi.xOff >= gi.width) {
             xft_width[slot] = gi.xOff;
@@ -381,67 +372,59 @@ int xft_char_width (uint32_t ch, font_t *cur_font)
         return 0;
 }
 
-int
-shift (monitor_t *mon, int x, int align, int ch_width)
-{
+int shift(monitor_t* mon, int x, int align, int chWidth) {
     switch (align) {
         case ALIGN_C:
             xcb_copy_area(c, mon->pixmap, mon->pixmap, gc[GC_DRAW],
                     mon->width / 2 - x / 2, 0,
-                    mon->width / 2 - (x + ch_width) / 2, 0,
+                    mon->width / 2 - (x + chWidth) / 2, 0,
                     x, bh);
-            x = mon->width / 2 - (x + ch_width) / 2 + x;
+            x = mon->width / 2 - (x + chWidth) / 2 + x;
             break;
         case ALIGN_R:
             xcb_copy_area(c, mon->pixmap, mon->pixmap, gc[GC_DRAW],
                     mon->width - x, 0,
-                    mon->width - x - ch_width, 0,
+                    mon->width - x - chWidth, 0,
                     x, bh);
-            x = mon->width - ch_width;
+            x = mon->width - chWidth;
             break;
     }
 
         /* Draw the background first */
-    fill_rect(mon->pixmap, gc[GC_CLEAR], x, 0, ch_width, bh);
+    fillRect(mon->pixmap, gc[GC_CLEAR], x, 0, chWidth, bh);
     return x;
 }
 
-void
-draw_lines (monitor_t *mon, int x, int w)
-{
+void drawLines(monitor_t* mon, int x, int w) {
     /* We can render both at the same time */
     if (attrs & ATTR_OVERL)
-        fill_rect(mon->pixmap, gc[GC_ATTR], x, 0, w, bu);
+        fillRect(mon->pixmap, gc[GC_ATTR], x, 0, w, bu);
     if (attrs & ATTR_UNDERL)
-        fill_rect(mon->pixmap, gc[GC_ATTR], x, bh - bu, w, bu);
+        fillRect(mon->pixmap, gc[GC_ATTR], x, bh - bu, w, bu);
 }
 
-void
-draw_shift (monitor_t *mon, int x, int align, int w)
-{
+void drawShift(monitor_t* mon, int x, int align, int w) {
     x = shift(mon, x, align, w);
-    draw_lines(mon, x, w);
+    drawLines(mon, x, w);
 }
 
-int
-draw_char (monitor_t *mon, font_t *cur_font, int x, int align, uint32_t ch)
-{
-    int ch_width;
+int drawChar(monitor_t* mon, font_t* curFont, int x, int align, uint32_t ch) {
+    int chWidth;
 
-    if (cur_font->xft_ft) {
-        ch_width = xft_char_width(ch, cur_font);
+    if (curFont->xft_ft) {
+        chWidth = xftCharWidth(ch, curFont);
     } else {
-        ch_width = (cur_font->width_lut) ?
-            cur_font->width_lut[ch - cur_font->char_min].character_width:
-            cur_font->width;
+        chWidth = (curFont->width_lut) ?
+            curFont->width_lut[ch - curFont->char_min].character_width:
+            curFont->width;
     }
 
-    x = shift(mon, x, align, ch_width);
+    x = shift(mon, x, align, chWidth);
 
-    int y = bh / 2 + cur_font->height / 2- cur_font->descent + offsets_y[offset_y_index];
-    if (cur_font->xft_ft) {
+    int y = bh / 2 + curFont->height / 2- curFont->descent + offsets_y[offset_y_index];
+    if (curFont->xft_ft) {
         // Para Xft usa la versión de 32 bits que soporta tus iconos grandes
-        XftDrawString32(xft_draw, &sel_fg, cur_font->xft_ft, x, y, (const FcChar32 *)&ch, 1);
+        XftDrawString32(xft_draw, &sel_fg, curFont->xft_ft, x, y, (const FcChar32 *)&ch, 1);
     } else {
         // Para XCB, solo si el icono cabe en 16 bits
         if (ch <= 0xFFFF) {
@@ -452,15 +435,13 @@ draw_char (monitor_t *mon, font_t *cur_font, int x, int align, uint32_t ch)
         }
     }
 
-    draw_lines(mon, x, ch_width);
+    drawLines(mon, x, chWidth);
 
-    return ch_width;
+    return chWidth;
 }
 
 
-void
-set_attribute (const char modifier, const char attribute)
-{
+void setAttribute(const char modifier, const char attribute) {
     int pos = indexof(attribute, "ou");
 
     if (pos < 0) {
@@ -543,7 +524,7 @@ select_drawable_font (const uint32_t c)
 //{
     ////std::cout << std::endl << std::endl << "[BarManager] parseBarElement: received '" << elements << "'" << std::endl << std::endl <<std::endl;
     //// === VARIABLES LOCALES DE ESTADO ===
-    //font_t *cur_font;        // Fuente actual seleccionada para dibujar
+    //font_t *curFont;        // Fuente actual seleccionada para dibujar
     //monitor_t *cur_mon;      // Monitor actual donde se está dibujando
     //int pos_x, align; // Posición X actual, alineación, botón del mouse
     ////char *block_end, *ep; // Punteros: actual al texto, fin del bloque, fin de parámetro
@@ -569,7 +550,7 @@ select_drawable_font (const uint32_t c)
     //// === LIMPIEZA DE TODOS LOS MONITORES ===
     //// Limpia el pixmap de cada monitor con el color de fondo
     //for (monitor_t *m = monhead; m != NULL; m = m->next)
-        //fill_rect(m->pixmap, gc[GC_CLEAR], 0, 0, m->width, bh);
+        //fillRect(m->pixmap, gc[GC_CLEAR], 0, 0, m->width, bh);
 
     //// === CREACIÓN DEL DRAWABLE XFT ===memset(ptr, '\0', sizeof(data));
     //// Xft drawable permite dibujar texto con fuentes TrueType/OpenType
@@ -701,10 +682,10 @@ select_drawable_font (const uint32_t c)
 
             UTF8Result result = decode_utf8_char(p);
 
-            font_t *cur_font = select_drawable_font(result.ucs);
-            if (!cur_font) result.ucs = '?';
+            font_t *curFont = select_drawable_font(result.ucs);
+            if (!curFont) result.ucs = '?';
 
-            char_width = get_utf8_char_width(result.ucs, cur_font);
+            char_width = get_utf8_char_width(result.ucs, curFont);
 
             element->ucsContent[i] = result.ucs;
             element->ucsContentCharWidths[i] = char_width;
@@ -732,7 +713,7 @@ select_drawable_font (const uint32_t c)
                     foregroundColor = element->foregroundColor;
                 if (element->underlineColor != Color(0x00000000U))
                     underlineColor = element->underlineColor;
-                update_gc();
+                updateGc();
 
                 // Parsear contenido y calcular anchos
                 parseElementContent(element);
@@ -760,7 +741,7 @@ select_drawable_font (const uint32_t c)
                     foregroundColor = element->foregroundColor;
                 if (element->underlineColor != Color(0x00000000U))
                     underlineColor = element->underlineColor;
-                update_gc();
+                updateGc();
 
                 parseElementContent(element);
                 total_width += element->width;
@@ -781,7 +762,7 @@ select_drawable_font (const uint32_t c)
         // Usar colores por defecto para el separador
         backgroundColor = defaultBackgroundColor;
         foregroundColor = defaultForegroundColor;
-        update_gc();
+        updateGc();
 
         // Renderizar separador UTF-8
         const char* sep_string = " ▏";
@@ -791,17 +772,17 @@ select_drawable_font (const uint32_t c)
         while (*p != '\0') {
             UTF8Result result = decode_utf8_char(p);
 
-            font_t *cur_font = select_drawable_font(result.ucs);
-            if (!cur_font) result.ucs = '?';
+            font_t *curFont = select_drawable_font(result.ucs);
+            if (!curFont) result.ucs = '?';
 
-            if (cur_font->ptr) {
+            if (curFont->ptr) {
                 xcb_change_gc(c, gc[GC_DRAW] , XCB_GC_FONT,
-                    (const uint32_t []) { cur_font->ptr });
+                    (const uint32_t []) { curFont->ptr });
             }
 
-            draw_char(cur_mon, cur_font, pos_x, ALIGN_L, result.ucs);
+            drawChar(cur_mon, curFont, pos_x, ALIGN_L, result.ucs);
 
-            int char_width = get_utf8_char_width(result.ucs, cur_font);
+            int char_width = get_utf8_char_width(result.ucs, curFont);
             pos_x += char_width;
 
             p += result.bytes_consumed;
@@ -814,7 +795,7 @@ select_drawable_font (const uint32_t c)
         monitor_t* cur_mon = monhead;
 
         // Margen derecho permanente (similar a CSS margin-right)
-        const int RIGHT_MARGIN = xft_char_width(' ', select_drawable_font(' '));
+        const int RIGHT_MARGIN = xftCharWidth(' ', select_drawable_font(' '));
         int available_width = cur_mon->width - RIGHT_MARGIN;
 
         // Renderizar elementos izquierdos con separadores
@@ -855,9 +836,9 @@ select_drawable_font (const uint32_t c)
         const char* p = sep_string;
         while (*p != '\0') {
             UTF8Result result = decode_utf8_char(p);
-            font_t *cur_font = select_drawable_font(result.ucs);
-            if (cur_font) {
-                separator_width += get_utf8_char_width(result.ucs, cur_font);
+            font_t *curFont = select_drawable_font(result.ucs);
+            if (curFont) {
+                separator_width += get_utf8_char_width(result.ucs, curFont);
             }
             p += result.bytes_consumed;
         }
@@ -892,38 +873,38 @@ select_drawable_font (const uint32_t c)
             foregroundColor = element->foregroundColor;
         if (element->underlineColor != Color(0x00000000U))
             underlineColor = element->underlineColor;
-        update_gc();
+        updateGc();
 
         // Usar posición pre-calculada en beginX
         int pos_x = element->beginX;
 
         // Aplicar offset si existe
         if (element->offsetPixels > 0) {
-            draw_shift(cur_mon, pos_x, ALIGN_L, element->offsetPixels);
+            drawShift(cur_mon, pos_x, ALIGN_L, element->offsetPixels);
             pos_x += element->offsetPixels;
         }
 
         // Renderizar cada carácter del elemento
         for (int i = 0; i < element->ucsContentLen; i++) {
             uint32_t ucs = element->ucsContent[i];
-            font_t *cur_font = select_drawable_font(ucs);
+            font_t *curFont = select_drawable_font(ucs);
             
             // Hot fix: Si no hay font válida, usar la primera disponible
-            if (!cur_font) {
+            if (!curFont) {
                 if (font_count > 0) {
-                    cur_font = font_list[0];
+                    curFont = font_list[0];
                 } else {
                     // Si no hay ninguna font, skip este carácter
                     continue;
                 }
             }
 
-            if (cur_font->ptr) {
+            if (curFont->ptr) {
                 xcb_change_gc(c, gc[GC_DRAW] , XCB_GC_FONT,
-                    (const uint32_t []) { cur_font->ptr });
+                    (const uint32_t []) { curFont->ptr });
             }
 
-            draw_char(cur_mon, cur_font, pos_x, ALIGN_L, ucs);
+            drawChar(cur_mon, curFont, pos_x, ALIGN_L, ucs);
             pos_x += element->ucsContentCharWidths[i];
         }
     }
@@ -935,7 +916,7 @@ select_drawable_font (const uint32_t c)
 
         // === LIMPIEZA DE MONITORES ===
         for (monitor_t *m = monhead; m != NULL; m = m->next)
-            fill_rect(m->pixmap, gc[GC_CLEAR], 0, 0, m->width, bh);
+            fillRect(m->pixmap, gc[GC_CLEAR], 0, 0, m->width, bh);
 
         // === CREACIÓN DEL DRAWABLE XFT ===
         if (!(xft_draw = XftDrawCreate (dpy, cur_mon->pixmap, visual_ptr , colormap))) {
@@ -979,9 +960,9 @@ void processXEvents(void) {
         xcb_expose_event_t *expose_ev = (xcb_expose_event_t *)ev;
         switch (ev->response_type & 0x7F) {
             case XCB_EXPOSE:
-                fprintf(stderr, "[lemonbar] event: EXPOSE count=%d, processing_expose=%s\n", expose_ev->count, processing_expose ? "true" : "false");
+                fprintf(stderr, "[lemonbar] event: EXPOSE count=%d, processingExpose=%s\n", expose_ev->count, processingExpose ? "true" : "false");
                 // Skip EXPOSE events that we generated ourselves to prevent infinite loop
-                if (expose_ev->count == 0 && !processing_expose) {
+                if (expose_ev->count == 0 && !processingExpose) {
                     redraw = true;
                 }
                 break;
@@ -1014,13 +995,13 @@ void processXEvents(void) {
     if (redraw) {
         fprintf(stderr, "[lemonbar] lemonbar_process_xevents: redraw requested\n");
         // Set flag to prevent infinite EXPOSE loop when we redraw
-        processing_expose = true;
+        processingExpose = true;
         for (monitor_t *mon = monhead; mon; mon = mon->next) {
             xcb_copy_area(c, mon->pixmap, mon->window, gc[GC_DRAW], 0, 0, 0, 0, mon->width, bh);
         }
         xcb_flush(c);
         // Clear the flag after flush is complete
-        processing_expose = false;
+        processingExpose = false;
     }
 }
 
@@ -1556,7 +1537,7 @@ init (char *wm_name, char *wm_instance)
 
     // Make the bar visible and clear the pixmap
     for (monitor_t *mon = monhead; mon; mon = mon->next) {
-        fill_rect(mon->pixmap, gc[GC_CLEAR], 0, 0, mon->width, bh);
+        fillRect(mon->pixmap, gc[GC_CLEAR], 0, 0, mon->width, bh);
         xcb_map_window(c, mon->window);
 
         // Make sure that the window really gets in the place it's supposed to be

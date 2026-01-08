@@ -23,14 +23,14 @@ class WeatherModule : public Module {
     const double lon;
 
     // Estado del clima
-    time_t last_api_call;
+    time_t lastApiCall;
     double temperature;
-    double feels_like;
+    double feelsLike;
     int humidity;
-    double wind_speed;
-    int weather_code;
-    bool is_night;
-    bool show_details;
+    double windSpeed;
+    int weatherCode;
+    bool isNight;
+    bool showDetails;
 
     // Descripciones del clima (códigos WMO)
     std::array<const char*, 10> weather_descriptions = {
@@ -50,14 +50,14 @@ class WeatherModule : public Module {
       Module("weather", false, 600),  // No auto-update, cada 600 segundos (10 min)
       lat(-34.4476799),    // Del Viso, Pilar, Buenos Aires
       lon(-58.8052387),    // Del Viso, Pilar, Buenos Aires
-      last_api_call(0),
+      lastApiCall(0),
       temperature(0.0),
-      feels_like(0.0),
+      feelsLike(0.0),
       humidity(0),
-      wind_speed(0.0),
-      weather_code(0),
-      is_night(false),
-      show_details(false)
+      windSpeed(0.0),
+      weatherCode(0),
+      isNight(false),
+      showDetails(false)
     {
       // Inicializar curl
       curl_global_init(CURL_GLOBAL_DEFAULT);
@@ -67,7 +67,7 @@ class WeatherModule : public Module {
 
       // Click izquierdo: toggle detalles
       baseElement.setEvent(BarElement::CLICK_LEFT, [this]() {
-        show_details = !show_details;
+        showDetails = !showDetails;
         update();
         if (renderFunction) {
           renderFunction();
@@ -93,9 +93,9 @@ class WeatherModule : public Module {
       time_t now = time(nullptr);
 
       // Solo llamar a la API si han pasado 10 minutos
-      if ((now - last_api_call) >= 600) {
+      if ((now - lastApiCall) >= 600) {
         if (fetchWeatherData()) {
-          last_api_call = now;
+          lastApiCall = now;
         }
       }
 
@@ -138,7 +138,7 @@ class WeatherModule : public Module {
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
 
         if (http_code == 200) {
-          success = parseWeatherJSON(readBuffer);
+          success = parseWeatherJson(readBuffer);
         } else {
           fprintf(stderr, "[WeatherModule] HTTP error: %ld\n", http_code);
         }
@@ -150,7 +150,7 @@ class WeatherModule : public Module {
       return success;
     }
 
-    bool parseWeatherJSON(const std::string& json_str) {
+    bool parseWeatherJson(const std::string& json_str) {
       json_object *root = json_tokener_parse(json_str.c_str());
       if (!root) {
         fprintf(stderr, "[WeatherModule] Failed to parse JSON\n");
@@ -173,13 +173,13 @@ class WeatherModule : public Module {
       // Extraer código del clima
       json_object *weathercode_obj;
       if (json_object_object_get_ex(current_weather, "weathercode", &weathercode_obj)) {
-        weather_code = json_object_get_int(weathercode_obj);
+        weatherCode = json_object_get_int(weathercode_obj);
       }
 
       // Extraer si es de noche
       json_object *is_day_obj;
       if (json_object_object_get_ex(current_weather, "is_day", &is_day_obj)) {
-        is_night = !json_object_get_boolean(is_day_obj);
+        isNight = !json_object_get_boolean(is_day_obj);
       }
 
       // Extraer datos horarios para feels like, humedad y viento
@@ -197,9 +197,9 @@ class WeatherModule : public Module {
 
           // Usar el primer valor (hora actual)
           if (json_object_array_length(temp_2m_array) > 0) {
-            feels_like = json_object_get_double(json_object_array_get_idx(feels_array, 0));
+            feelsLike = json_object_get_double(json_object_array_get_idx(feels_array, 0));
             humidity = json_object_get_int(json_object_array_get_idx(humidity_array, 0));
-            wind_speed = json_object_get_double(json_object_array_get_idx(wind_array, 0));
+            windSpeed = json_object_get_double(json_object_array_get_idx(wind_array, 0));
           }
         }
       }
@@ -207,18 +207,18 @@ class WeatherModule : public Module {
       json_object_put(root);
 
       fprintf(stderr, "[WeatherModule] Weather updated: %.1f°C, code: %d\n",
-              temperature, weather_code);
+              temperature, weatherCode);
 
       return true;
     }
 
     const char* getWeatherDescription() {
       // Simplificación de códigos WMO a descripciones
-      switch(weather_code) {
-        case 0: return is_night ? u8"\U000f0594" : u8"\U000f0599";  // Despejado
+      switch(weatherCode) {
+        case 0: return isNight ? u8"\U000f0594" : u8"\U000f0599";  // Despejado
         case 1:
         case 2:
-        case 3: return is_night ? u8"\U000f0f31" : u8"\U000f0595";  // Parcialmente nublado
+        case 3: return isNight ? u8"\U000f0f31" : u8"\U000f0595";  // Parcialmente nublado
         case 45:
         case 48: return u8"\U000f0591";  // Niebla
         case 51:
@@ -250,10 +250,10 @@ class WeatherModule : public Module {
       // Icono del clima y temperatura principal
       content += fmt::format("{} {:.1f}°C", getWeatherDescription(), temperature);
 
-      if (show_details) {
+      if (showDetails) {
         content += fmt::format(
           " | ST: {:.1f}°C | H: {}% | V: {:.1f}km/h",
-          feels_like, humidity, wind_speed
+          feelsLike, humidity, windSpeed
         );
       }
 

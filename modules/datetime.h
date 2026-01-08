@@ -17,16 +17,16 @@ class DateTimeModule : public Module {
   DateTimeModule():
     Module("datetime", false, 1),
     dias({"dom", "lun", "mar", "mié", "jue", "vie", "sab"}),
-    show_hour(true)
+    showHour(true)
   {
 
     baseElement.moduleName = name;
     baseElement.setEvent(
       BarElement::CLICK_LEFT,
       [this](){
-        this->show_hour = !show_hour;
+        this->showHour = !showHour;
 
-        if (this->show_hour) {
+        if (this->showHour) {
           // Mostrar hora: actualizar cada segundo
           this->setSecondsPerUpdate(1);
         } else {
@@ -47,7 +47,7 @@ class DateTimeModule : public Module {
         time_t now = time(NULL);
         struct tm *tm = localtime(&now);
 
-        if (show_hour) {
+        if (showHour) {
             baseElement.contentLen = snprintf(
                 baseElement.content,
                 CONTENT_MAX_LEN,
@@ -77,7 +77,7 @@ class DateTimeModule : public Module {
     }
 
     std::array<const char*, 7> dias;
-    bool show_hour = false;
+    bool showHour = false;
 };
 
 #endif // DATETIME_H
