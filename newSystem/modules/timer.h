@@ -197,8 +197,8 @@ public:
             ICON_LOGO
         );
         
-        // En modo oculto, el logo es estático
-        baseElement.dirtyContent = show_details;
+        // El logo siempre necesita actualizarse por cambios de color
+        baseElement.dirtyContent = true;
 
         // Icono play/pause (solo visible cuando show_details = true)
         if (show_details) {
@@ -222,9 +222,9 @@ public:
             }
             playIconElement.dirtyContent = true;
         } else {
-            // Ocultar playIcon cuando está en modo oculto
+            // Ocultar playIcon cuando está en modo oculto (forzar actualización)
             playIconElement.contentLen = snprintf(playIconElement.content, CONTENT_MAX_LEN, "");
-            playIconElement.dirtyContent = false;  // No necesita actualización en modo oculto
+            playIconElement.dirtyContent = true;  // Forzar actualización para ocultar
         }
 
         // Elementos de tiempo
@@ -255,13 +255,13 @@ public:
         } else {
             // Ocultar elementos de tiempo cuando está en modo oculto
             hourElement.contentLen = snprintf(hourElement.content, CONTENT_MAX_LEN, "");
-            hourElement.dirtyContent = false;  // No necesita actualización en modo oculto
+            hourElement.dirtyContent = true;  // Forzar actualización para ocultar
             
             minuteElement.contentLen = snprintf(minuteElement.content, CONTENT_MAX_LEN, "");
-            minuteElement.dirtyContent = false;  // No necesita actualización en modo oculto
+            minuteElement.dirtyContent = true;  // Forzar actualización para ocultar
             
             secondElement.contentLen = snprintf(secondElement.content, CONTENT_MAX_LEN, "");
-            secondElement.dirtyContent = false;  // No necesita actualización en modo oculto
+            secondElement.dirtyContent = true;  // Forzar actualización para ocultar
         }
 
         // Actualizar timestamp - CRÍTICO
