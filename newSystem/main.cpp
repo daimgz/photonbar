@@ -30,12 +30,12 @@
 #include "modules/battery.h"
 #include "modules/audio.h"
 #include "modules/workspace.h"
-//#include "modules/resources.h"
-//#include "modules/ping.h"
-//#include "modules/stopwatch.h"
-//#include "modules/timer.h"
-//#include "modules/weather.h"
-//#include "modules/space.h"
+#include "modules/resources.h"
+#include "modules/ping.h"
+#include "modules/stopwatch.h"
+#include "modules/timer.h"
+#include "modules/weather.h"
+#include "modules/space.h"
 #include "process_manager.h"
 #include "bar.h"
 
@@ -337,10 +337,15 @@ int main(int argc, char* argv[]) {
     static AudioModule audio_top;
     static BatteryModule battery_top;
     static DateTimeModule datetime_top;
+    static WeatherModule weather_top;
 
     // Módulos para barra inferior
     static PingModule ping_bottom;
+    static TimerModule timer_bottom;
+    static StopwatchModule stopwatch_bottom;
+    static SpaceModule space_bottom;
     static AudioModule audio_bottom;
+    static ResourcesModule resources_bottom;
 
     // Thread para inicializar y ejecutar barra superior
     std::thread top_thread([debug_log]() {
@@ -350,6 +355,8 @@ int main(int argc, char* argv[]) {
         std::vector<Module*> right_modules;
         right_modules.push_back(&audio_top);
         right_modules.push_back(&battery_top);
+        right_modules.push_back(&weather_top);
+        right_modules.push_back(&datetime_top);
 
         BarManager barTop(
           "topBar",
@@ -398,11 +405,13 @@ int main(int argc, char* argv[]) {
     // Thread para inicializar y ejecutar barra inferior
     std::thread bottom_thread([debug_log]() {
         std::vector<Module*> left_modules;
-        left_modules.push_back(&datetime_top);
+       left_modules .push_back(&timer_bottom);
+       left_modules .push_back(&stopwatch_bottom);
 
         std::vector<Module*> right_modules;
+        right_modules.push_back(&space_bottom);
+        right_modules.push_back(&resources_bottom);
         right_modules.push_back(&ping_bottom);
-        right_modules.push_back(&audio_bottom);
 
         BarManager barBottom(
           "bottomBar",
