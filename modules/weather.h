@@ -1,6 +1,7 @@
 #ifndef WEATHER_H
 #define WEATHER_H
-
+#include <iostream>
+using namespace std;
 #include <cstring>
 #include <ctime>
 #include <stdio.h>
@@ -32,6 +33,10 @@ class WeatherModule : public Module {
     bool isNight;
     bool showDetails;
 
+    // Optimización: Conexión persistente y cache
+    CURL* curl_handle;
+    time_t lastModified;
+
     // Descripciones del clima (códigos WMO)
     std::array<const char*, 10> weather_descriptions = {
       "Despejado", "Parcialmente nublado", "Nublado", "Lluvia ligera",
@@ -39,10 +44,25 @@ class WeatherModule : public Module {
       "Tormenta", "Variable"
     };
 
-    // Callback para curl
+    // Callbacks para curl
     static size_t WriteCallback(void *contents, size_t size, size_t nmemb, std::string *userp) {
       userp->append((char*)contents, size * nmemb);
       return size * nmemb;
+    }
+
+    static size_t HeaderCallback(void *contents, size_t size, size_t nmemb, void *userp) {
+      size_t total_size = size * nmemb;
+      std::string header((char*)contents, total_size);
+
+      // Buscar header Last-Modified para cache
+      if (header.find("Last-Modified:") == 0) {
+        // Extraer timestamp del header
+        WeatherModule* self = static_cast<WeatherModule*>(userp);
+        // Parse simple - would need proper date parsing in production
+        self->lastModified = time(nullptr);
+      }
+
+      return total_size;
     }
 
   public:
@@ -57,10 +77,13 @@ class WeatherModule : public Module {
       windSpeed(0.0),
       weatherCode(0),
       isNight(false),
-      showDetails(false)
+      showDetails(false),
+      curl_handle(nullptr),
+      lastModified(0)
     {
-      // Inicializar curl
+      // Inicializar curl una sola vez para conexión persistente
       curl_global_init(CURL_GLOBAL_DEFAULT);
+      initializeCurlHandle();
 
       // Configurar elemento base
       baseElement.moduleName = name;
@@ -80,7 +103,41 @@ class WeatherModule : public Module {
       elements.push_back(&baseElement);
     }
 
+    void initializeCurlHandle() {
+      if (!curl_handle) {
+        curl_handle = curl_easy_init();
+        if (!curl_handle) {
+          fprintf(stderr, "[WeatherModule] Failed to initialize curl handle\n");
+          return;
+        }
+
+        // Optimización 1: Keep-Alive y TCP persistente
+        curl_easy_setopt(curl_handle, CURLOPT_TCP_KEEPALIVE, 1L);
+        curl_easy_setopt(curl_handle, CURLOPT_TCP_KEEPIDLE, 120L);
+        curl_easy_setopt(curl_handle, CURLOPT_TCP_KEEPINTVL, 30L);
+
+        // Optimización 2: Reutilización de sesión SSL
+        curl_easy_setopt(curl_handle, CURLOPT_SSL_SESSIONID_CACHE, 1L);
+        curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYPEER, 1L);
+        curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYHOST, 2L);
+
+        // Optimización 3: HTTP cache con If-Modified-Since
+        curl_easy_setopt(curl_handle, CURLOPT_TIMECONDITION, CURL_TIMECOND_IFMODSINCE);
+
+        // Configuración general
+        curl_easy_setopt(curl_handle, CURLOPT_TIMEOUT, 15L);
+        curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl_handle, CURLOPT_HEADERFUNCTION, HeaderCallback);
+        curl_easy_setopt(curl_handle, CURLOPT_HEADERDATA, this);
+
+        fprintf(stderr, "[WeatherModule] Curl handle initialized with optimizations\n");
+      }
+    }
+
     ~WeatherModule() {
+      if (curl_handle) {
+        curl_easy_cleanup(curl_handle);
+      }
       curl_global_cleanup();
     }
 
@@ -90,13 +147,23 @@ class WeatherModule : public Module {
     }
 
     void update() override {
+      cout << "llegue al weather weoneeesee" << endl << endl << endl;
+      cout << "llegue al weather weoneeesee" << endl << endl << endl;
+      cout << "llegue al weather weoneeesee" << endl << endl << endl;
+      cout << "llegue al weather weoneeesee" << endl << endl << endl;
+      cout << "llegue al weather weoneeesee" << endl << endl << endl;
+      cout << "llegue al weather weoneeesee" << endl << endl << endl;
+      cout << "llegue al weather weoneeesee" << endl << endl << endl;
       time_t now = time(nullptr);
 
+      // Asegurar que el handle esté inicializado
+      if (!curl_handle) {
+        initializeCurlHandle();
+      }
+
       // Solo llamar a la API si han pasado 10 minutos
-      if ((now - lastApiCall) >= 600) {
-        if (fetchWeatherData()) {
-          lastApiCall = now;
-        }
+      if (fetchWeatherData()) {
+        lastApiCall = now;
       }
 
       generateBuffer();
@@ -105,15 +172,12 @@ class WeatherModule : public Module {
 
   private:
     bool fetchWeatherData() {
-      CURL *curl;
-      CURLcode res;
-      std::string readBuffer;
-
-      curl = curl_easy_init();
-      if(!curl) {
-        fprintf(stderr, "[WeatherModule] Failed to initialize curl\n");
+      if (!curl_handle) {
+        fprintf(stderr, "[WeatherModule] Curl handle not initialized\n");
         return false;
       }
+
+      std::string readBuffer;
 
       // Construir URL para Open-Meteo API
       std::string url = fmt::format(
@@ -125,20 +189,27 @@ class WeatherModule : public Module {
         lat, lon
       );
 
-      curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-      curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-      curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
-      curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L); // 10 segundos timeout
+      // Optimización 4: Usar timestamp de última modificación
+      curl_easy_setopt(curl_handle, CURLOPT_URL, url.c_str());
+      curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &readBuffer);
+      curl_easy_setopt(curl_handle, CURLOPT_TIMEVALUE, lastModified);
 
-      res = curl_easy_perform(curl);
+      CURLcode res = curl_easy_perform(curl_handle);
 
       bool success = false;
       if(res == CURLE_OK) {
         long http_code = 0;
-        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+        curl_easy_getinfo(curl_handle, CURLINFO_RESPONSE_CODE, &http_code);
 
         if (http_code == 200) {
+          // Datos nuevos recibidos
           success = parseWeatherJson(readBuffer);
+          lastModified = time(nullptr); // Actualizar timestamp
+          fprintf(stderr, "[WeatherModule] Fresh data received (HTTP 200)\n");
+        } else if (http_code == 304) {
+          // Not Modified - usar cache existente
+          success = true;
+          fprintf(stderr, "[WeatherModule] Using cached data (HTTP 304)\n");
         } else {
           fprintf(stderr, "[WeatherModule] HTTP error: %ld\n", http_code);
         }
@@ -146,7 +217,6 @@ class WeatherModule : public Module {
         fprintf(stderr, "[WeatherModule] Curl error: %s\n", curl_easy_strerror(res));
       }
 
-      curl_easy_cleanup(curl);
       return success;
     }
 
