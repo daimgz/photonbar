@@ -1,4 +1,7 @@
 
+#ifndef COLOR_H
+#define COLOR_H
+
 #include <cerrno>
 #include <cstdint>
 #include <cstdio>
@@ -104,3 +107,5 @@ public:
         return Color(0U);
     }
 };
+
+#endif // COLOR_H
