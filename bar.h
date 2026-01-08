@@ -888,7 +888,7 @@ select_drawable_font (const uint32_t c)
         for (int i = 0; i < element->ucsContentLen; i++) {
             uint32_t ucs = element->ucsContent[i];
             font_t *curFont = select_drawable_font(ucs);
-            
+
             // Hot fix: Si no hay font válida, usar la primera disponible
             if (!curFont) {
                 if (font_count > 0) {
@@ -982,6 +982,8 @@ void processXEvents(void) {
                                 ((const int)press_ev->event_x) < (element->beginX + element->width)
                             ) {
                                 pair.second();
+                                free(ev);
+                                return;
                             }
                         }
                     }
