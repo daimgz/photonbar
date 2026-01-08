@@ -349,20 +349,20 @@ int main(int argc, char* argv[]) {
 
     // Thread para inicializar y ejecutar barra superior
     std::thread top_thread([debug_log]() {
-        std::vector<Module*> left_modules;
-        left_modules.push_back(&workspace_top);
+        std::vector<Module*> leftModules;
+        leftModules.push_back(&workspace_top);
 
-        std::vector<Module*> right_modules;
-        right_modules.push_back(&audio_top);
-        right_modules.push_back(&battery_top);
-        right_modules.push_back(&weather_top);
-        right_modules.push_back(&datetime_top);
+        std::vector<Module*> rightModules;
+        rightModules.push_back(&audio_top);
+        rightModules.push_back(&battery_top);
+        rightModules.push_back(&weather_top);
+        rightModules.push_back(&datetime_top);
 
         BarManager barTop(
           "topBar",
           true,
-          left_modules,
-          right_modules
+          leftModules,
+          rightModules
         );
 
         // Registrar referencia global para callbacks
@@ -404,20 +404,20 @@ int main(int argc, char* argv[]) {
 
     // Thread para inicializar y ejecutar barra inferior
     std::thread bottom_thread([debug_log]() {
-        std::vector<Module*> left_modules;
-       left_modules .push_back(&timer_bottom);
-       left_modules .push_back(&stopwatch_bottom);
+        std::vector<Module*> leftModules;
+       leftModules .push_back(&timer_bottom);
+       leftModules .push_back(&stopwatch_bottom);
 
-        std::vector<Module*> right_modules;
-        right_modules.push_back(&space_bottom);
-        right_modules.push_back(&resources_bottom);
-        right_modules.push_back(&ping_bottom);
+        std::vector<Module*> rightModules;
+        rightModules.push_back(&space_bottom);
+        rightModules.push_back(&resources_bottom);
+        rightModules.push_back(&ping_bottom);
 
         BarManager barBottom(
           "bottomBar",
           false,
-          left_modules,
-          right_modules
+          leftModules,
+          rightModules
         );
 
         // Registrar referencia global para callbacks

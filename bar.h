@@ -106,30 +106,30 @@ class Bar{
 
 
 public:
-wchar_t xft_char[MAX_WIDTHS];
-char    xft_width[MAX_WIDTHS];
-XftColor sel_fg;
-XftDraw *xft_draw;
+wchar_t xftChar[MAX_WIDTHS];
+char    xftWidth[MAX_WIDTHS];
+XftColor selFg;
+XftDraw *xftDraw;
     Display *dpy;
 xcb_connection_t *c;
 
 xcb_screen_t *scr;
-int scr_nbr = 0;
+int scrNbr = 0;
 
 xcb_gcontext_t gc[GC_MAX];
 xcb_visualid_t visual;
-Visual *visual_ptr;
+Visual *visualPtr;
 xcb_colormap_t colormap;
-int visual_depth = 0; // depth of chosen visual (bits)
+int visualDepth = 0; // depth of chosen visual (bits)
 
 
 monitor_t *monhead, *montail;
-font_t *font_list[MAX_FONT_COUNT];
-int font_count = 0;
-int font_index = -1;
-int offsets_y[MAX_FONT_COUNT];
-int offset_y_count = 0;
-int offset_y_index = 0;
+font_t *fontList[MAX_FONT_COUNT];
+int fontCount = 0;
+int fontIndex = -1;
+int offsetsY[MAX_FONT_COUNT];
+int offsetYCount = 0;
+int offsetYIndex = 0;
 
 uint32_t attrs = 0;
 bool dock = false; // hace que la barra siempre sea visible en la pantalla
@@ -148,18 +148,18 @@ Color
 
 //area_stack_t area_stack;
 
-std::function<void(const char *cmd)> click_cb;
+std::function<void(const char *cmd)> clickCb;
 
 /* Flag to prevent infinite EXPOSE loop */
 bool processingExpose = false;
 
-    const std::vector<Module*> left_modules;
-    const std::vector<Module*> right_modules;
+    const std::vector<Module*> leftModules;
+    const std::vector<Module*> rightModules;
     std::vector<Module*> modules;
 
 public:
 
-inline UTF8Result decode_utf8_char(const char* input) {
+inline UTF8Result decodeUtf8Char(const char* input) {
     const uint8_t *utf = (const uint8_t *)input;
     UTF8Result result = {0, 1};
 
@@ -188,7 +188,7 @@ inline UTF8Result decode_utf8_char(const char* input) {
     return result;
 }
 
-inline int get_utf8_char_width(uint32_t ucs, font_t* font) {
+inline int getUtf8CharWidth(uint32_t ucs, font_t* font) {
     if (!font) return 0;
 
     if (font->xft_ft) {
@@ -209,15 +209,15 @@ inline int get_utf8_char_width(uint32_t ucs, font_t* font) {
         const std::vector<Module*> &rightModules
     ) :
         topbar(topBar),
-        left_modules(leftModules),
-        right_modules(rightModules)
+        leftModules(leftModules),
+        rightModules(rightModules)
     {
-        modules.insert(modules.end(), left_modules.begin(), left_modules.end());
-        modules.insert(modules.end(), right_modules.begin(), right_modules.end());
+        modules.insert(modules.end(), leftModules.begin(), leftModules.end());
+        modules.insert(modules.end(), rightModules.begin(), rightModules.end());
 
         //connect();
         for (const auto& font : fonts) {
-            font_load(font.c_str());
+            fontLoad(font.c_str());
         }
         //setClickHandler(cb);
 //Color::parse_color(hex, NULL, (Color)0x00000000U)
@@ -230,7 +230,7 @@ inline int get_utf8_char_width(uint32_t ucs, font_t* font) {
         xconn();
         fprintf(stderr, "[lemonbar] lemonbar_init_lib: xconn complete\n");
 
-        // init() expects fonts to be loaded already; caller should call font_load()
+        // init() expects fonts to be loaded already; caller should call fontLoad()
         init((char *)name, (char *)name);
         fprintf(stderr, "[lemonbar] lemonbar_init_lib: init complete\n");
 
@@ -238,18 +238,18 @@ inline int get_utf8_char_width(uint32_t ucs, font_t* font) {
     }
 
 void setClickHandler(std::function<void(const char *cmd)> cb) {
-    click_cb = cb;
+    clickCb = cb;
 }
 
 void updateGc(void) {
     xcb_change_gc(c, gc[GC_DRAW], XCB_GC_FOREGROUND, (const uint32_t []){ foregroundColor.v });
     xcb_change_gc(c, gc[GC_CLEAR], XCB_GC_FOREGROUND, (const uint32_t []){ backgroundColor.v });
     xcb_change_gc(c, gc[GC_ATTR], XCB_GC_FOREGROUND, (const uint32_t []){ underlineColor.v });
-    XftColorFree(dpy, visual_ptr, colormap , &sel_fg);
+    XftColorFree(dpy, visualPtr, colormap , &selFg);
     char color[] = "#ffffff";
     uint32_t nfgc = foregroundColor.v & 0x00ffffff;
     snprintf(color, sizeof(color), "#%06X", nfgc);
-    if (!XftColorAllocName (dpy, visual_ptr, colormap, color, &sel_fg)) {
+    if (!XftColorAllocName (dpy, visualPtr, colormap, color, &selFg)) {
         fprintf(stderr, "Couldn't allocate xft font color '%s'\n", color);
     }
 }
@@ -344,7 +344,7 @@ xcb_void_cookie_t xcb_poly_text_16_simple(xcb_connection_t * c,
 
 int xftCharWidthSlot(uint32_t ch) {
     int slot = ch % MAX_WIDTHS;
-    while (xft_char[slot] != 0 && xft_char[slot] != ch)
+    while (xftChar[slot] != 0 && xftChar[slot] != ch)
     {
         slot = (slot + 1) % MAX_WIDTHS;
     }
@@ -353,21 +353,21 @@ int xftCharWidthSlot(uint32_t ch) {
 
 int xftCharWidth(uint32_t ch, font_t* curFont) {
     int slot = xftCharWidthSlot(ch);
-    if (!xft_char[slot]) {
+    if (!xftChar[slot]) {
         XGlyphInfo gi;
         FT_UInt glyph = XftCharIndex (dpy, curFont->xft_ft, (FcChar32) ch);
         XftFontLoadGlyphs (dpy, curFont->xft_ft, FcFalse, &glyph, 1);
         XftGlyphExtents (dpy, curFont->xft_ft, &glyph, 1, &gi);
         XftFontUnloadGlyphs (dpy, curFont->xft_ft, &glyph, 1);
-        xft_char[slot] = ch;
+        xftChar[slot] = ch;
         if (gi.xOff >= gi.width) {
-            xft_width[slot] = gi.xOff;
+            xftWidth[slot] = gi.xOff;
         } else {
-            xft_width[slot] = gi.width;
+            xftWidth[slot] = gi.width;
         }
-        return xft_width[slot];
-    } else if (xft_char[slot] == ch)
-        return xft_width[slot];
+        return xftWidth[slot];
+    } else if (xftChar[slot] == ch)
+        return xftWidth[slot];
     else
         return 0;
 }
@@ -421,10 +421,10 @@ int drawChar(monitor_t* mon, font_t* curFont, int x, int align, uint32_t ch) {
 
     x = shift(mon, x, align, chWidth);
 
-    int y = bh / 2 + curFont->height / 2- curFont->descent + offsets_y[offset_y_index];
+    int y = bh / 2 + curFont->height / 2- curFont->descent + offsetsY[offsetYIndex];
     if (curFont->xft_ft) {
         // Para Xft usa la versión de 32 bits que soporta tus iconos grandes
-        XftDrawString32(xft_draw, &sel_fg, curFont->xft_ft, x, y, (const FcChar32 *)&ch, 1);
+        XftDrawString32(xftDraw, &selFg, curFont->xft_ft, x, y, (const FcChar32 *)&ch, 1);
     } else {
         // Para XCB, solo si el icono cabe en 16 bits
         if (ch <= 0xFFFF) {
@@ -478,7 +478,7 @@ void setAttribute(const char modifier, const char attribute) {
 
 
 bool
-font_has_glyph (font_t *font, const uint32_t c)
+fontHasGlyph (font_t *font, const uint32_t c)
 {
     if (font->xft_ft) {
         if (XftCharExists(dpy, font->xft_ft, (FcChar32) c)) {
@@ -499,20 +499,20 @@ font_has_glyph (font_t *font, const uint32_t c)
 }
 
 font_t *
-select_drawable_font (const uint32_t c)
+selectDrawableFont (const uint32_t c)
 {
     // If the user has specified a font to use, try that first.
-    if (font_index != -1 && font_has_glyph(font_list[font_index - 1], c)) {
-        offset_y_index = font_index - 1;
-        return font_list[font_index - 1];
+    if (fontIndex != -1 && fontHasGlyph(fontList[fontIndex - 1], c)) {
+        offsetYIndex = fontIndex - 1;
+        return fontList[fontIndex - 1];
     }
 
     // If the end is reached without finding an appropriate font, return NULL.
     // If the font can draw the character, return it.
-    for (int i = 0; i < font_count; i++) {
-        if (font_has_glyph(font_list[i], c)) {
-            offset_y_index = i;
-            return font_list[i];
+    for (int i = 0; i < fontCount; i++) {
+        if (fontHasGlyph(fontList[i], c)) {
+            offsetYIndex = i;
+            return fontList[i];
         }
     }
     return NULL;
@@ -554,7 +554,7 @@ select_drawable_font (const uint32_t c)
 
     //// === CREACIÓN DEL DRAWABLE XFT ===memset(ptr, '\0', sizeof(data));
     //// Xft drawable permite dibujar texto con fuentes TrueType/OpenType
-    //if (!(xft_draw = XftDrawCreate (dpy, cur_mon->pixmap, visual_ptr , colormap))) {
+    //if (!(xftDraw = XftDrawCreate (dpy, cur_mon->pixmap, visualPtr , colormap))) {
         //fprintf(stderr, "Couldn't create xft drawable\n");
     //}
 
@@ -568,26 +568,26 @@ select_drawable_font (const uint32_t c)
             ////std::cout << std::endl << std::endl << "estoy" << element->content << " len " << element->contentLen << std::endl << std::endl << std::endl;
             //element->beginX = pos_x;
             //// === COMANDOS DE COLOR ===
-            ////case 'B': backgroundColor = Color::parse_color(p, &p, defaultBackgroundColor); update_gc(); break;
+            ////case 'B': backgroundColor = Color::parse_color(p, &p, defaultBackgroundColor); updateGc(); break;
             //if (element->backgroundColor != Color(0x00000000U))
                 //backgroundColor = element->backgroundColor;
-            ////case 'F': foregroundColor = Color::parse_color(p, &p, defaultForegroundColor); update_gc(); break;
+            ////case 'F': foregroundColor = Color::parse_color(p, &p, defaultForegroundColor); updateGc(); break;
             //if (element->foregroundColor != Color(0x00000000U))
                 //foregroundColor = element->foregroundColor;
-            ////case 'U': underlineColor = Color::parse_color(p, &p, defaultUnderlineColor); update_gc(); break;
+            ////case 'U': underlineColor = Color::parse_color(p, &p, defaultUnderlineColor); updateGc(); break;
             //if (element->underlineColor != Color(0x00000000U))
                 //underlineColor = element->underlineColor;
 
-            //update_gc();
+            //updateGc();
         //}
     //}
 //}
 
     void
-    font_load (const char *pattern)
+    fontLoad (const char *pattern)
     {
-        fprintf(stderr, "[lemonbar] font_load: trying to load '%s' (font_count=%d)\n", pattern ? pattern : "(null)", font_count);
-        if (font_count >= MAX_FONT_COUNT) {
+        fprintf(stderr, "[lemonbar] fontLoad: trying to load '%s' (fontCount=%d)\n", pattern ? pattern : "(null)", fontCount);
+        if (fontCount >= MAX_FONT_COUNT) {
             fprintf(stderr, "Max font count reached. Could not load font \"%s\"\n", pattern);
             return;
         }
@@ -597,11 +597,11 @@ select_drawable_font (const uint32_t c)
          * (useful for in-process use) while avoiding dereferencing a NULL
          * xcb_connection. */
         if (!dpy || !c) {
-            fprintf(stderr, "[lemonbar] font_load: no X connection, calling xconn()\n");
+            fprintf(stderr, "[lemonbar] fontLoad: no X connection, calling xconn()\n");
             xconn();
         }
 
-        fprintf(stderr, "[lemonbar] font_load: X connection present (dpy=%p c=%p)\n", (void*)dpy, (void*)c);
+        fprintf(stderr, "[lemonbar] fontLoad: X connection present (dpy=%p c=%p)\n", (void*)dpy, (void*)c);
         xcb_query_font_cookie_t queryreq;
         xcb_query_font_reply_t *font_info;
         xcb_void_cookie_t cookie;
@@ -633,7 +633,7 @@ select_drawable_font (const uint32_t c)
                 memcpy(ret->width_lut, xcb_query_font_char_infos(font_info), lut_size);
             }
             free(font_info);
-        } else if ((ret->xft_ft = XftFontOpenName (dpy, scr_nbr, pattern))) {
+        } else if ((ret->xft_ft = XftFontOpenName (dpy, scrNbr, pattern))) {
             ret->ptr = 0;
             ret->ascent = ret->xft_ft->ascent;
             ret->descent = ret->xft_ft->descent;
@@ -644,24 +644,24 @@ select_drawable_font (const uint32_t c)
             return;
         }
 
-        font_list[font_count++] = ret;
-        fprintf(stderr, "[lemonbar] font_load: loaded '%s' into slot %d\n", pattern, font_count-1);
+        fontList[fontCount++] = ret;
+        fprintf(stderr, "[lemonbar] fontLoad: loaded '%s' into slot %d\n", pattern, fontCount-1);
     }
 
 
     void add_y_offset(int offset) {
-        if (offset_y_count >= MAX_FONT_COUNT) {
+        if (offsetYCount >= MAX_FONT_COUNT) {
             fprintf(stderr, "Max offset count reached. Could not set offset \"%d\"\n", offset);
             return;
         }
 
-        offsets_y[offset_y_count] = offset;
-        if (offset_y_count == 0) {
+        offsetsY[offsetYCount] = offset;
+        if (offsetYCount == 0) {
             for (int i = 1; i < MAX_FONT_COUNT; ++i) {
-                offsets_y[i] = offsets_y[0];
+                offsetsY[i] = offsetsY[0];
             }
         }
-        ++offset_y_count;
+        ++offsetYCount;
     }
 
 
@@ -680,12 +680,12 @@ select_drawable_font (const uint32_t c)
                 break;
             }
 
-            UTF8Result result = decode_utf8_char(p);
+            UTF8Result result = decodeUtf8Char(p);
 
-            font_t *curFont = select_drawable_font(result.ucs);
+            font_t *curFont = selectDrawableFont(result.ucs);
             if (!curFont) result.ucs = '?';
 
-            char_width = get_utf8_char_width(result.ucs, curFont);
+            char_width = getUtf8CharWidth(result.ucs, curFont);
 
             element->ucsContent[i] = result.ucs;
             element->ucsContentCharWidths[i] = char_width;
@@ -702,7 +702,7 @@ select_drawable_font (const uint32_t c)
         int current_x = 0;
         monitor_t* cur_mon = monhead;
 
-        for (Module* module : left_modules) {
+        for (Module* module : leftModules) {
             module->window = cur_mon->window;
 
             for (BarElement* element : module->getElements()) {
@@ -730,7 +730,7 @@ select_drawable_font (const uint32_t c)
 
         // Calcular ancho total de todos los elementos derechos
         int total_width = 0;
-        for (Module* module : right_modules) {
+        for (Module* module : rightModules) {
             module->window = cur_mon->window;
 
             for (BarElement* element : module->getElements()) {
@@ -750,7 +750,7 @@ select_drawable_font (const uint32_t c)
 
         // Posicionar elementos de derecha a izquierda
         int current_x = cur_mon->width;
-        for (Module* module : right_modules) {
+        for (Module* module : rightModules) {
             for (BarElement* element : module->getElements()) {
                 current_x -= element->width;
                 element->beginX = current_x;
@@ -770,9 +770,9 @@ select_drawable_font (const uint32_t c)
 
         const char* p = sep_string;
         while (*p != '\0') {
-            UTF8Result result = decode_utf8_char(p);
+            UTF8Result result = decodeUtf8Char(p);
 
-            font_t *curFont = select_drawable_font(result.ucs);
+            font_t *curFont = selectDrawableFont(result.ucs);
             if (!curFont) result.ucs = '?';
 
             if (curFont->ptr) {
@@ -782,7 +782,7 @@ select_drawable_font (const uint32_t c)
 
             drawChar(cur_mon, curFont, pos_x, ALIGN_L, result.ucs);
 
-            int char_width = get_utf8_char_width(result.ucs, curFont);
+            int char_width = getUtf8CharWidth(result.ucs, curFont);
             pos_x += char_width;
 
             p += result.bytes_consumed;
@@ -795,13 +795,13 @@ select_drawable_font (const uint32_t c)
         monitor_t* cur_mon = monhead;
 
         // Margen derecho permanente (similar a CSS margin-right)
-        const int RIGHT_MARGIN = xftCharWidth(' ', select_drawable_font(' '));
+        const int RIGHT_MARGIN = xftCharWidth(' ', selectDrawableFont(' '));
         int available_width = cur_mon->width - RIGHT_MARGIN;
 
         // Renderizar elementos izquierdos con separadores
         int current_x = 0;
-        for (size_t i = 0; i < left_modules.size(); i++) {
-            Module* module = left_modules[i];
+        for (size_t i = 0; i < leftModules.size(); i++) {
+            Module* module = leftModules[i];
 
             // Renderizar todos los elementos del módulo actual
             for (BarElement* element : module->getElements()) {
@@ -811,7 +811,7 @@ select_drawable_font (const uint32_t c)
             }
 
             // Agregar separador excepto después del último módulo
-            if (i < left_modules.size() - 1) {
+            if (i < leftModules.size() - 1) {
                 current_x = renderSeparatorAt(cur_mon, current_x);
             }
         }
@@ -819,14 +819,14 @@ select_drawable_font (const uint32_t c)
         // Renderizar elementos derechos con márgen
         // Calcular ancho total de elementos derechos
         int total_right_width = 0;
-        for (Module* module : right_modules) {
+        for (Module* module : rightModules) {
             for (BarElement* element : module->getElements()) {
                 total_right_width += element->width;
             }
         }
 
         // Ancho total de separadores derechos
-        int right_separator_count = (right_modules.size() > 0) ? (right_modules.size() - 1) : 0;
+        int right_separator_count = (rightModules.size() > 0) ? (rightModules.size() - 1) : 0;
         int separator_width = 0;
 
         // Calcular ancho del separador UTF-8 usando funciones helper
@@ -835,10 +835,10 @@ select_drawable_font (const uint32_t c)
 
         const char* p = sep_string;
         while (*p != '\0') {
-            UTF8Result result = decode_utf8_char(p);
-            font_t *curFont = select_drawable_font(result.ucs);
+            UTF8Result result = decodeUtf8Char(p);
+            font_t *curFont = selectDrawableFont(result.ucs);
             if (curFont) {
-                separator_width += get_utf8_char_width(result.ucs, curFont);
+                separator_width += getUtf8CharWidth(result.ucs, curFont);
             }
             p += result.bytes_consumed;
         }
@@ -848,8 +848,8 @@ select_drawable_font (const uint32_t c)
         // Posicionar elementos derechos respetando el margen derecho
         current_x = available_width - total_right_with_separators;
 
-        for (size_t i = 0; i < right_modules.size(); i++) {
-            Module* module = right_modules[i];
+        for (size_t i = 0; i < rightModules.size(); i++) {
+            Module* module = rightModules[i];
 
             // Renderizar elementos del módulo actual
             for (BarElement* element : module->getElements()) {
@@ -859,7 +859,7 @@ select_drawable_font (const uint32_t c)
             }
 
             // Agregar separador excepto después del último módulo
-            if (i < right_modules.size() - 1) {
+            if (i < rightModules.size() - 1) {
                 current_x = renderSeparatorAt(cur_mon, current_x);
             }
         }
@@ -887,12 +887,12 @@ select_drawable_font (const uint32_t c)
         // Renderizar cada carácter del elemento
         for (int i = 0; i < element->ucsContentLen; i++) {
             uint32_t ucs = element->ucsContent[i];
-            font_t *curFont = select_drawable_font(ucs);
+            font_t *curFont = selectDrawableFont(ucs);
 
             // Hot fix: Si no hay font válida, usar la primera disponible
             if (!curFont) {
-                if (font_count > 0) {
-                    curFont = font_list[0];
+                if (fontCount > 0) {
+                    curFont = fontList[0];
                 } else {
                     // Si no hay ninguna font, skip este carácter
                     continue;
@@ -919,7 +919,7 @@ select_drawable_font (const uint32_t c)
             fillRect(m->pixmap, gc[GC_CLEAR], 0, 0, m->width, bh);
 
         // === CREACIÓN DEL DRAWABLE XFT ===
-        if (!(xft_draw = XftDrawCreate (dpy, cur_mon->pixmap, visual_ptr , colormap))) {
+        if (!(xftDraw = XftDrawCreate (dpy, cur_mon->pixmap, visualPtr , colormap))) {
             fprintf(stderr, "Couldn't create xft drawable\n");
             return;
         }
@@ -932,7 +932,7 @@ select_drawable_font (const uint32_t c)
         renderAllElements();
 
         // === LIMPIEZA FINAL ===
-        XftDrawDestroy(xft_draw);
+        XftDrawDestroy(xftDraw);
     }
 
     void feed() {
@@ -970,10 +970,12 @@ void processXEvents(void) {
                 xcb_button_press_event_t *press_ev = (xcb_button_press_event_t *)ev;
                 fprintf(stderr, "[lemonbar] event: BUTTON_PRESS win=%u detail=%u x=%u\n", press_ev->event, press_ev->detail, press_ev->event_x);
 
+                bool eventHandled = false;
                 for (Module *module : modules) {
+                    if (eventHandled) break;
                     for (BarElement *element : module->getElements()) {
+                        if (eventHandled) break;
                         for (std::pair<BarElement::EventType, EventFunction> pair : element->events) {
-                            std::cout << "se ejecuto '" << (const int)press_ev->detail << "' y  debe ser '" << pair.first << "'" << std::endl;
                             if (pair.first != (const int)press_ev->detail)
                                 continue;
                             if (
@@ -982,8 +984,8 @@ void processXEvents(void) {
                                 ((const int)press_ev->event_x) < (element->beginX + element->width)
                             ) {
                                 pair.second();
-                                free(ev);
-                                return;
+                                eventHandled = true;
+                                break;
                             }
                         }
                     }
@@ -1020,7 +1022,7 @@ enum {
 };
 
 void
-set_ewmh_atoms (void)
+setEwmhAtoms (void)
 {
     const char *atom_names[] = {
         "_NET_WM_WINDOW_TYPE",
@@ -1077,7 +1079,7 @@ set_ewmh_atoms (void)
 }
 
 monitor_t *
-monitor_new (int x, int y, int width, int height)
+monitorNew (int x, int y, int width, int height)
 {
     monitor_t *ret;
 
@@ -1120,7 +1122,7 @@ monitor_new (int x, int y, int width, int height)
 }
 
 void
-monitor_add (monitor_t *mon)
+monitorAdd (monitor_t *mon)
 {
     if (!monhead) {
         monhead = mon;
@@ -1136,7 +1138,7 @@ monitor_add (monitor_t *mon)
 }
 
 int
-static rect_sort_cb (const void *p1, const void *p2)
+static rectSortCb (const void *p1, const void *p2)
 {
     const xcb_rectangle_t *r1 = (xcb_rectangle_t *)p1;
     const xcb_rectangle_t *r2 = (xcb_rectangle_t *)p2;
@@ -1155,14 +1157,14 @@ static rect_sort_cb (const void *p1, const void *p2)
 }
 
 void
-monitor_create_chain (xcb_rectangle_t *rects, const int num)
+monitorCreateChain (xcb_rectangle_t *rects, const int num)
 {
     int i;
     int width = 0, height = 0;
     int left = bx;
 
     // Sort before use
-    qsort(rects, num, sizeof(xcb_rectangle_t), rect_sort_cb);
+    qsort(rects, num, sizeof(xcb_rectangle_t), rectSortCb);
 
     for (i = 0; i < num; i++) {
         int h = rects[i].y + rects[i].height;
@@ -1178,7 +1180,7 @@ monitor_create_chain (xcb_rectangle_t *rects, const int num)
 
     // Use the first font height as all the font heights have been set to the biggest of the set
     if (bh < 0 || bh > height)
-        bh = font_list[0]->height + bu + 2;
+        bh = fontList[0]->height + bu + 2;
 
     // Check the geometry
     if (bx + bw > width || by + bh > height) {
@@ -1192,7 +1194,7 @@ monitor_create_chain (xcb_rectangle_t *rects, const int num)
         if (rects[i].y + rects[i].height < by)
             continue;
         if (rects[i].width > left) {
-            monitor_t *mon = monitor_new(
+            monitor_t *mon = monitorNew(
                                  rects[i].x + left,
                                  rects[i].y,
                                  min(width, rects[i].width - left),
@@ -1201,7 +1203,7 @@ monitor_create_chain (xcb_rectangle_t *rects, const int num)
             if (!mon)
                 break;
 
-            monitor_add(mon);
+            monitorAdd(mon);
 
             width -= rects[i].width - left;
             // No need to check for other monitors
@@ -1217,7 +1219,7 @@ monitor_create_chain (xcb_rectangle_t *rects, const int num)
 }
 
 void
-get_randr_monitors (void)
+getRandrMonitors (void)
 {
     xcb_randr_get_screen_resources_current_reply_t *rres_reply;
     xcb_randr_output_t *outputs;
@@ -1307,12 +1309,12 @@ get_randr_monitors (void)
         if (rects[i].width != 0)
             r[j++] = rects[i];
 
-    monitor_create_chain(r, valid);
+    monitorCreateChain(r, valid);
 }
 
 #ifdef WITH_XINERAMA
 void
-get_xinerama_monitors (void)
+getXineramaMonitors (void)
 {
     xcb_xinerama_query_screens_reply_t *xqs_reply;
     xcb_xinerama_screen_info_iterator_t iter;
@@ -1337,12 +1339,12 @@ get_xinerama_monitors (void)
 
     free(xqs_reply);
 
-    monitor_create_chain(rects, screens);
+    monitorCreateChain(rects, screens);
 }
 #endif
 
 xcb_visualid_t
-get_visual (void)
+getVisual (void)
 {
 
     XVisualInfo xv;
@@ -1352,18 +1354,18 @@ get_visual (void)
     result_ptr = XGetVisualInfo(dpy, VisualDepthMask, &xv, &result);
 
     if (result > 0) {
-        visual_ptr = result_ptr->visual;
+        visualPtr = result_ptr->visual;
         return result_ptr->visualid;
     }
 
     //Fallback
-    visual_ptr = DefaultVisual(dpy, scr_nbr);
+    visualPtr = DefaultVisual(dpy, scrNbr);
     return scr->root_visual;
 }
 
 // Parse an X-styled geometry string, we don't support signed offsets though.
 bool
-parse_geometry_string (char *str, int *tmp)
+parseGeometryString (char *str, int *tmp)
 {
     char *p = str;
     int i = 0, j;
@@ -1441,7 +1443,7 @@ xconn (void)
     fprintf(stderr, "[lemonbar] xconn: got screen data\n");
 
     /* Try to get a RGBA visual and build the colormap for that */
-	visual = get_visual();
+	visual = getVisual();
     colormap = xcb_generate_id(c);
     xcb_create_colormap(c, XCB_COLORMAP_ALLOC_NONE, colormap, scr->root, visual);
     fprintf(stderr, "[lemonbar] xconn: created colormap %u visual %u\n", colormap, visual);
@@ -1451,21 +1453,21 @@ void
 init (char *wm_name, char *wm_instance)
 {
     // Try to load a default font
-    if (!font_count)
-        font_load("fixed");
+    if (!fontCount)
+        fontLoad("fixed");
 
     // We tried and failed hard, there's something wrong
-    if (!font_count)
+    if (!fontCount)
         exit(EXIT_FAILURE);
 
     // To make the alignment uniform, find maximum height
-    int maxh = font_list[0]->height;
-    for (int i = 1; i < font_count; i++)
-        maxh = max(maxh, font_list[i]->height);
+    int maxh = fontList[0]->height;
+    for (int i = 1; i < fontCount; i++)
+        maxh = max(maxh, fontList[i]->height);
 
     // Set maximum height to all fonts
-    for (int i = 0; i < font_count; i++)
-        font_list[i]->height = maxh;
+    for (int i = 0; i < fontCount; i++)
+        fontList[i]->height = maxh;
 
     // Generate a list of screens
     const xcb_query_extension_reply_t *qe_reply;
@@ -1477,7 +1479,7 @@ init (char *wm_name, char *wm_instance)
     qe_reply = xcb_get_extension_data(c, &xcb_randr_id);
 
     if (qe_reply && qe_reply->present) {
-        get_randr_monitors();
+        getRandrMonitors();
     }
 #if WITH_XINERAMA
     else {
@@ -1489,7 +1491,7 @@ init (char *wm_name, char *wm_instance)
             xia_reply = xcb_xinerama_is_active_reply(c, xcb_xinerama_is_active(c), NULL);
 
             if (xia_reply && xia_reply->state)
-                get_xinerama_monitors();
+                getXineramaMonitors();
 
             free(xia_reply);
         }
@@ -1517,7 +1519,7 @@ init (char *wm_name, char *wm_instance)
         }
 
         // If no RandR outputs or Xinerama screens, fall back to using whole screen
-        monhead = monitor_new(0, 0, bw, scr->height_in_pixels);
+        monhead = monitorNew(0, 0, bw, scr->height_in_pixels);
         fprintf(stderr, "[init] Created monitor: monhead=%p\n", (void*)monhead);
     }
 
@@ -1525,7 +1527,7 @@ init (char *wm_name, char *wm_instance)
         exit(EXIT_FAILURE);
 
     // For WM that support EWMH atoms
-    set_ewmh_atoms();
+    setEwmhAtoms();
 
     // Create the gc for drawing
     gc[GC_DRAW] = xcb_generate_id(c);
@@ -1573,7 +1575,7 @@ init (char *wm_name, char *wm_instance)
     uint32_t nfgc = foregroundColor.v & 0x00ffffff;
     snprintf(color, sizeof(color), "#%06X", nfgc);
 
-    if (!XftColorAllocName (dpy, visual_ptr, colormap, color, &sel_fg)) {
+    if (!XftColorAllocName (dpy, visualPtr, colormap, color, &selFg)) {
         fprintf(stderr, "Couldn't allocate xft font color '%s'\n", color);
     }
     xcb_flush(c);
@@ -1602,15 +1604,15 @@ sighandle (int signal)
 }
 
     ~Bar() {
-        for (int i = 0; font_list[i]; i++) {
-            if (font_list[i]->xft_ft) {
-                XftFontClose (dpy, font_list[i]->xft_ft);
+        for (int i = 0; fontList[i]; i++) {
+            if (fontList[i]->xft_ft) {
+                XftFontClose (dpy, fontList[i]->xft_ft);
             }
             else {
-                xcb_close_font(c, font_list[i]->ptr);
-                free(font_list[i]->width_lut);
+                xcb_close_font(c, fontList[i]->ptr);
+                free(fontList[i]->width_lut);
             }
-            free(font_list[i]);
+            free(fontList[i]);
         }
 
         while (monhead) {
@@ -1621,7 +1623,7 @@ sighandle (int signal)
             monhead = next;
         }
 
-        XftColorFree(dpy, visual_ptr, colormap, &sel_fg);
+        XftColorFree(dpy, visualPtr, colormap, &selFg);
 
         if (gc[GC_DRAW])
             xcb_free_gc(c, gc[GC_DRAW]);
