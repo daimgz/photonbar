@@ -147,13 +147,6 @@ class WeatherModule : public Module {
     }
 
     void update() override {
-      cout << "llegue al weather weoneeesee" << endl << endl << endl;
-      cout << "llegue al weather weoneeesee" << endl << endl << endl;
-      cout << "llegue al weather weoneeesee" << endl << endl << endl;
-      cout << "llegue al weather weoneeesee" << endl << endl << endl;
-      cout << "llegue al weather weoneeesee" << endl << endl << endl;
-      cout << "llegue al weather weoneeesee" << endl << endl << endl;
-      cout << "llegue al weather weoneeesee" << endl << endl << endl;
       time_t now = time(nullptr);
 
       // Asegurar que el handle esté inicializado
