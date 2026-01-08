@@ -63,8 +63,8 @@ typedef struct font_t {
     int ascent;
 
     int descent, height, width;
-    uint32_t char_max;
-    uint32_t char_min;
+    uint32_t charMax;
+    uint32_t charMin;
 } font_t;
 
 typedef struct monitor_t {
@@ -98,7 +98,7 @@ enum {
 // Funciones helper UTF-8 para evitar duplicación
 struct UTF8Result {
     uint32_t ucs;
-    int bytes_consumed;
+    int bytesConsumed;
 };
 
 
@@ -166,23 +166,23 @@ inline UTF8Result decodeUtf8Char(const char* input) {
     if (utf[0] < 0x80) {
         // ASCII (1 byte)
         result.ucs = utf[0];
-        result.bytes_consumed = 1;
+        result.bytesConsumed = 1;
     } else if ((utf[0] & 0xe0) == 0xc0) {
         // UTF-8 de 2 bytes
         result.ucs = (utf[0] & 0x1f) << 6 | (utf[1] & 0x3f);
-        result.bytes_consumed = 2;
+        result.bytesConsumed = 2;
     } else if ((utf[0] & 0xf0) == 0xe0) {
         // UTF-8 de 3 bytes
         result.ucs = (utf[0] & 0xf) << 12 | (utf[1] & 0x3f) << 6 | (utf[2] & 0x3f);
-        result.bytes_consumed = 3;
+        result.bytesConsumed = 3;
     } else if ((utf[0] & 0xf8) == 0xf0) {
         // UTF-8 de 4 bytes
         result.ucs = (utf[0] & 0x07) << 18 | (utf[1] & 0x3f) << 12 | (utf[2] & 0x3f) << 6 | (utf[3] & 0x3f);
-        result.bytes_consumed = 4;
+        result.bytesConsumed = 4;
     } else {
         // Byte inválido
         result.ucs = utf[0];
-        result.bytes_consumed = 1;
+        result.bytesConsumed = 1;
     }
 
     return result;
@@ -194,8 +194,8 @@ inline int getUtf8CharWidth(uint32_t ucs, font_t* font) {
     if (font->xft_ft) {
         return xftCharWidth(ucs, font);
     } else {
-        return (font->width_lut && ucs >= font->char_min && ucs <= font->char_max) ?
-            font->width_lut[ucs - font->char_min].character_width :
+        return (font->width_lut && ucs >= font->charMin && ucs <= font->charMax) ?
+            font->width_lut[ucs - font->charMin].character_width :
             font->width;
     }
 }
@@ -415,7 +415,7 @@ int drawChar(monitor_t* mon, font_t* curFont, int x, int align, uint32_t ch) {
         chWidth = xftCharWidth(ch, curFont);
     } else {
         chWidth = (curFont->width_lut) ?
-            curFont->width_lut[ch - curFont->char_min].character_width:
+            curFont->width_lut[ch - curFont->charMin].character_width:
             curFont->width;
     }
 
@@ -489,10 +489,10 @@ fontHasGlyph (font_t *font, const uint32_t c)
 
     }
 
-    if (c < font->char_min || c > font->char_max)
+    if (c < font->charMin || c > font->charMax)
         return false;
 
-    if (font->width_lut && font->width_lut[c - font->char_min].character_width == 0)
+    if (font->width_lut && font->width_lut[c - font->charMin].character_width == 0)
         return false;
 
     return true;
@@ -624,8 +624,8 @@ selectDrawableFont (const uint32_t c)
             ret->descent = font_info->font_descent;
             ret->height = font_info->font_ascent + font_info->font_descent;
             ret->width = font_info->max_bounds.character_width;
-            ret->char_max = font_info->max_byte1 << 8 | font_info->max_char_or_byte2;
-            ret->char_min = font_info->min_byte1 << 8 | font_info->min_char_or_byte2;
+ret->charMax = font_info->max_byte1 << 8 | font_info->max_char_or_byte2;
+    ret->charMin = font_info->min_byte1 << 8 | font_info->min_char_or_byte2;
             // Copy over the width lut as it's part of font_info
             int lut_size = sizeof(xcb_charinfo_t) * xcb_query_font_char_infos_length(font_info);
             if (lut_size) {
@@ -649,7 +649,7 @@ selectDrawableFont (const uint32_t c)
     }
 
 
-    void add_y_offset(int offset) {
+    void addYOffset(int offset) {
         if (offsetYCount >= MAX_FONT_COUNT) {
             fprintf(stderr, "Max offset count reached. Could not set offset \"%d\"\n", offset);
             return;
@@ -691,7 +691,7 @@ selectDrawableFont (const uint32_t c)
             element->ucsContentCharWidths[i] = char_width;
             total_width += char_width;
 
-            p += result.bytes_consumed;
+            p += result.bytesConsumed;
         }
 
         element->width = total_width;
@@ -785,7 +785,7 @@ selectDrawableFont (const uint32_t c)
             int char_width = getUtf8CharWidth(result.ucs, curFont);
             pos_x += char_width;
 
-            p += result.bytes_consumed;
+            p += result.bytesConsumed;
         }
 
         return pos_x;
@@ -840,7 +840,7 @@ selectDrawableFont (const uint32_t c)
             if (curFont) {
                 separator_width += getUtf8CharWidth(result.ucs, curFont);
             }
-            p += result.bytes_consumed;
+            p += result.bytesConsumed;
         }
 
         int total_right_with_separators = total_right_width + (right_separator_count * separator_width);
@@ -866,13 +866,30 @@ selectDrawableFont (const uint32_t c)
     }
 
     void renderElement(BarElement* element, monitor_t* cur_mon) {
+        // Resetear completamente atributos al inicio de cada elemento
+        attrs = 0;
+        
         // Aplicar colores para renderizado
         if (element->backgroundColor != Color(0x00000000U))
             backgroundColor = element->backgroundColor;
+        else
+            backgroundColor = defaultBackgroundColor;
+            
         if (element->foregroundColor != Color(0x00000000U))
             foregroundColor = element->foregroundColor;
-        if (element->underlineColor != Color(0x00000000U))
-            underlineColor = element->underlineColor;
+        else
+            foregroundColor = defaultForegroundColor;
+            
+        // Usar propiedad underline del elemento para determinar si activar subrayado
+        if (element->underline) {
+            if (element->underlineColor != Color(0x00000000U))
+                underlineColor = element->underlineColor;
+            else
+                underlineColor = defaultUnderlineColor;
+            attrs |= ATTR_UNDERL;
+        } else {
+            underlineColor = defaultUnderlineColor;
+        }
         updateGc();
 
         // Usar posición pre-calculada en beginX
@@ -907,6 +924,8 @@ selectDrawableFont (const uint32_t c)
             drawChar(cur_mon, curFont, pos_x, ALIGN_L, ucs);
             pos_x += element->ucsContentCharWidths[i];
         }
+        
+
     }
 
     void parseModules() {
