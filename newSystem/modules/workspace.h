@@ -19,6 +19,7 @@
 class WorkspaceModule : public Module {
   public:
     WorkspaceModule() : Module("workspace", true, 1) {
+      initialize();
       initialize_elements();
     }
 
