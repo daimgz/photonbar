@@ -146,7 +146,8 @@ Color
     defaultBackgroundColor,
     defaultUnderlineColor;
 
-//area_stack_t area_stack;
+// Dirty state tracking for colors
+bool colorsDirty = true;
 
 std::function<void(const char *cmd)> clickCb;
 
@@ -242,6 +243,9 @@ void setClickHandler(std::function<void(const char *cmd)> cb) {
 }
 
 void updateGc(void) {
+    // Only update if colors are dirty
+    if (!colorsDirty) return;
+    
     xcb_change_gc(c, gc[GC_DRAW], XCB_GC_FOREGROUND, (const uint32_t []){ foregroundColor.v });
     xcb_change_gc(c, gc[GC_CLEAR], XCB_GC_FOREGROUND, (const uint32_t []){ backgroundColor.v });
     xcb_change_gc(c, gc[GC_ATTR], XCB_GC_FOREGROUND, (const uint32_t []){ underlineColor.v });
@@ -252,6 +256,13 @@ void updateGc(void) {
     if (!XftColorAllocName (dpy, visualPtr, colormap, color, &selFg)) {
         fprintf(stderr, "Couldn't allocate xft font color '%s'\n", color);
     }
+    
+    // Mark colors as clean
+    colorsDirty = false;
+}
+
+void markColorsDirty(void) {
+    colorsDirty = true;
 }
 
 void fillGradient(xcb_drawable_t d, int x, int y, int width, int height, Color start, Color stop) {
@@ -707,13 +718,23 @@ ret->charMax = font_info->max_byte1 << 8 | font_info->max_char_or_byte2;
 
             for (BarElement* element : module->getElements()) {
                 // Aplicar colores
-                if (element->backgroundColor != Color(0x00000000U))
+                bool colorsChanged = false;
+                if (element->backgroundColor != Color(0x00000000U)) {
                     backgroundColor = element->backgroundColor;
-                if (element->foregroundColor != Color(0x00000000U))
+                    colorsChanged = true;
+                }
+                if (element->foregroundColor != Color(0x00000000U)) {
                     foregroundColor = element->foregroundColor;
-                if (element->underlineColor != Color(0x00000000U))
+                    colorsChanged = true;
+                }
+                if (element->underlineColor != Color(0x00000000U)) {
                     underlineColor = element->underlineColor;
-                updateGc();
+                    colorsChanged = true;
+                }
+                if (colorsChanged) {
+                    markColorsDirty();
+                    updateGc();
+                }
 
                 // Parsear contenido y calcular anchos
                 parseElementContent(element);
@@ -735,13 +756,23 @@ ret->charMax = font_info->max_byte1 << 8 | font_info->max_char_or_byte2;
 
             for (BarElement* element : module->getElements()) {
                 // Aplicar colores
-                if (element->backgroundColor != Color(0x00000000U))
+                bool colorsChanged = false;
+                if (element->backgroundColor != Color(0x00000000U)) {
                     backgroundColor = element->backgroundColor;
-                if (element->foregroundColor != Color(0x00000000U))
+                    colorsChanged = true;
+                }
+                if (element->foregroundColor != Color(0x00000000U)) {
                     foregroundColor = element->foregroundColor;
-                if (element->underlineColor != Color(0x00000000U))
+                    colorsChanged = true;
+                }
+                if (element->underlineColor != Color(0x00000000U)) {
                     underlineColor = element->underlineColor;
-                updateGc();
+                    colorsChanged = true;
+                }
+                if (colorsChanged) {
+                    markColorsDirty();
+                    updateGc();
+                }
 
                 parseElementContent(element);
                 total_width += element->width;
@@ -762,6 +793,7 @@ ret->charMax = font_info->max_byte1 << 8 | font_info->max_char_or_byte2;
         // Usar colores por defecto para el separador
         backgroundColor = defaultBackgroundColor;
         foregroundColor = defaultForegroundColor;
+        markColorsDirty();
         updateGc();
 
         // Renderizar separador UTF-8
@@ -870,6 +902,10 @@ ret->charMax = font_info->max_byte1 << 8 | font_info->max_char_or_byte2;
         attrs = 0;
         
         // Aplicar colores para renderizado
+        Color oldBgColor = backgroundColor;
+        Color oldFgColor = foregroundColor;
+        Color oldUlColor = underlineColor;
+        
         if (element->backgroundColor != Color(0x00000000U))
             backgroundColor = element->backgroundColor;
         else
@@ -890,7 +926,14 @@ ret->charMax = font_info->max_byte1 << 8 | font_info->max_char_or_byte2;
         } else {
             underlineColor = defaultUnderlineColor;
         }
-        updateGc();
+        
+        // Solo marcar como dirty si los colores realmente cambiaron
+        if (oldBgColor.v != backgroundColor.v || 
+            oldFgColor.v != foregroundColor.v || 
+            oldUlColor.v != underlineColor.v) {
+            markColorsDirty();
+            updateGc();
+        }
 
         // Usar posición pre-calculada en beginX
         int pos_x = element->beginX;
