@@ -90,14 +90,14 @@ private:
         // Actualizar contenido de los elementos
         if (powerNow > 0 && (strcmp(status, "Discharging") == 0 || strcmp(status, "Charging") == 0)) {
             // Mostrar tiempo restante o de carga
-            float time_float;
+            float timeFloat;
             if (strcmp(status, "Discharging") == 0)
-                time_float = (float)energyNow / powerNow;
+                timeFloat = (float)energyNow / powerNow;
             else
-                time_float = (float)(energyFull - energyNow) / powerNow;
+                timeFloat = (float)(energyFull - energyNow) / powerNow;
 
-            int hours = (int)time_float;
-            int minutes = (int)((time_float - hours) * 60);
+            int hours = (int)timeFloat;
+            int minutes = (int)((timeFloat - hours) * 60);
 
             // Icono
             iconElement.contentLen = snprintf(

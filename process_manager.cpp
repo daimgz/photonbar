@@ -5,10 +5,10 @@
 #include <cstdio>
 #include <cstdlib>
 
-ProcessManager* ProcessManager::g_instance = nullptr;
+ProcessManager* ProcessManager::gInstance = nullptr;
 
 ProcessManager::ProcessManager() : lockFilePath(nullptr) {
-    g_instance = this;
+    gInstance = this;
 }
 
 ProcessManager::~ProcessManager() {
@@ -16,10 +16,10 @@ ProcessManager::~ProcessManager() {
 }
 
 const char* ProcessManager::getLockFilePath() {
-    static char lock_path[512];
+    static char lockPath[512];
     struct passwd *pw = getpwuid(getuid());
-    snprintf(lock_path, sizeof(lock_path), "/tmp/myBar_%s.lock", pw->pw_name);
-    return lock_path;
+    snprintf(lockPath, sizeof(lockPath), "/tmp/myBar_%s.lock", pw->pw_name);
+    return lockPath;
 }
 
 bool ProcessManager::isProcessRunning(pid_t pid) {
@@ -55,35 +55,35 @@ void ProcessManager::removeLockFile() {
 }
 
 bool ProcessManager::killExistingInstance(bool verbose) {
-    pid_t existing_pid = readLockFile();
+    pid_t existingPid = readLockFile();
 
-    if (existing_pid == 0) {
+    if (existingPid == 0) {
         if (verbose) {
             printf("No se encontró instancia existente de myBar\n");
         }
         return false;
     }
 
-    if (!isProcessRunning(existing_pid)) {
-        if (verbose) {
-            printf("Se encontró lock file stale, eliminando...\n");
+if (!isProcessRunning(existingPid)) {
+            if (verbose) {
+                printf("Se encontró lock file stale, eliminando...\n");
+            }
+            removeLockFile();
+            return false;
         }
-        removeLockFile();
-        return false;
-    }
 
-    if (verbose) {
-        printf("Terminando instancia existente (PID: %d)...\n", existing_pid);
-    }
+        if (verbose) {
+            printf("Terminando instancia existente (PID: %d)...\n", existingPid);
+        }
 
-    kill(existing_pid, SIGTERM);
+        kill(existingPid, SIGTERM);
     sleep(2);
 
-    if (isProcessRunning(existing_pid)) {
-        if (verbose) {
-            printf("La instancia no terminó, forzando cierre...\n");
-        }
-        kill(existing_pid, SIGKILL);
+if (isProcessRunning(existingPid)) {
+            if (verbose) {
+                printf("La instancia no terminó, forzando cierre...\n");
+            }
+            kill(existingPid, SIGKILL);
         sleep(1);
     }
 
@@ -97,9 +97,9 @@ bool ProcessManager::killExistingInstance(bool verbose) {
 }
 
 void ProcessManager::signalHandler(int signal) {
-    if (g_instance) {
+    if (gInstance) {
         printf("Recibida señal %d, terminando myBar...\n", signal);
-        g_instance->cleanup();
+        gInstance->cleanup();
         exit(0);
     }
 }
@@ -113,9 +113,9 @@ void ProcessManager::setupSignalHandlers() {
 bool ProcessManager::handleExistingInstances(bool restartMode, bool verbose) {
     lockFilePath = getLockFilePath();
 
-    pid_t existing_pid = readLockFile();
+    pid_t existingPid = readLockFile();
 
-    if (existing_pid == 0) {
+    if (existingPid == 0) {
         if (!writeLockFile(getpid())) {
             fprintf(stderr, "Error: No se pudo crear lock file\n");
             return false;
@@ -123,9 +123,9 @@ bool ProcessManager::handleExistingInstances(bool restartMode, bool verbose) {
         return true;
     }
 
-    if (!isProcessRunning(existing_pid)) {
-        if (verbose) {
-            printf("Lock file stale detectado (PID %d no existe), eliminando...\n", existing_pid);
+if (!isProcessRunning(existingPid)) {
+            if (verbose) {
+                printf("Lock file stale detectado (PID %d no existe), eliminando...\n", existingPid);
         }
         removeLockFile();
 
@@ -150,7 +150,7 @@ bool ProcessManager::handleExistingInstances(bool restartMode, bool verbose) {
         return true;
     } else {
         if (verbose) {
-            printf("Error: myBar ya está en ejecución (PID: %d)\n", existing_pid);
+            printf("Error: myBar ya está en ejecución (PID: %d)\n", existingPid);
             printf("Usa --restart para terminar la instancia existente y empezar una nueva\n");
         }
         return false;

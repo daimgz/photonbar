@@ -53,16 +53,16 @@
 class BarManager; // Forward declaration
 
 // Variables globales para manejo de señales y múltiples barras
-static std::atomic<bool> g_shutdown(false);
+static std::atomic<bool> gShutdown(false);
 
 // Referencias globales para callbacks de click (compatible con hilos)
-static BarManager* g_bar_managers[2] = {nullptr, nullptr};
-static std::mutex g_bar_manager_mutex;
+static BarManager* gBarManagers[2] = {nullptr, nullptr};
+static std::mutex gBarManagerMutex;
 
 // Sincronización para inicialización secuencial
-static std::mutex g_init_mutex;
-static std::condition_variable g_init_cv;
-static bool g_top_ready = false;
+static std::mutex gInitMutex;
+static std::condition_variable gInitCv;
+static bool gTopReady = false;
 
 class BarManager {
 public:
@@ -89,7 +89,7 @@ public:
 
     // Encontrar y guardar referencia al módulo workspace
     for (auto* module : modules) {
-        module->setRenderFunction([this]() { render_bar(); });
+        module->setRenderFunction([this]() { renderBar(); });
         if (module->getName() == "workspace") {
             workspace = static_cast<WorkspaceModule*>(module);
         }
@@ -117,20 +117,20 @@ public:
       // Si es la barra superior, notificar que está lista
       if (this->isTop) {
           {
-              std::lock_guard<std::mutex> lock(g_init_mutex);
-              g_top_ready = true;
+              std::lock_guard<std::mutex> lock(gInitMutex);
+              gTopReady = true;
           }
-          g_init_cv.notify_one();
+          gInitCv.notify_one();
           fprintf(stderr, "[BarManager] Barra superior inicializada y lista\n");
       }
 
       return true;
   }
 
-   void run() {
-       render_bar(); // Initial render
+void run() {
+        renderBar(); // Initial render
 
-       while (!g_shutdown.load()) {
+       while (!gShutdown.load()) {
           struct timeval tv;
           fd_set fds;
           struct timespec ts;
@@ -142,7 +142,7 @@ public:
 
            FD_ZERO(&fds);
            if (xcb_fd != -1) FD_SET(xcb_fd, &fds); // Escuchar eventos X
-int i3_fd = workspace ? workspace->setup_select_fds(fds) : -1; // Escuchar cambios de escritorio
+int i3_fd = workspace ? workspace->setupSelectFds(fds) : -1; // Escuchar cambios de escritorio
 
             // Calcular max_fd correctamente cuando no hay workspace
             int max_fd = -1;
@@ -168,10 +168,10 @@ int i3_fd = workspace ? workspace->setup_select_fds(fds) : -1; // Escuchar cambi
 
            bool workspace_changed = workspace ? workspace->handleI3Events(fds) : false;
 
-           // Procesar eventos X - estos pueden generar clicks que se manejan por separado
-           if (xcb_fd != -1 && FD_ISSET(xcb_fd, &fds)) {
-               handle_x_events(fds);
-           }
+// Procesar eventos X - estos pueden generar clicks que se manejan por separado
+            if (xcb_fd != -1 && FD_ISSET(xcb_fd, &fds)) {
+                handleXEvents(fds);
+            }
 
 // Determinar si necesitamos actualizar módulos
             bool should_update = false;
@@ -192,9 +192,9 @@ int i3_fd = workspace ? workspace->setup_select_fds(fds) : -1; // Escuchar cambi
                updateModules();
 
                // Renderizar solo si algún módulo se actualizó
-               if (hasUpdates()) {
-                   render_bar();
-               }
+if (hasUpdates()) {
+                    renderBar();
+                }
            }
       }
   }
@@ -244,7 +244,7 @@ int i3_fd = workspace ? workspace->setup_select_fds(fds) : -1; // Escuchar cambi
       return any_updated;
   }
 
-  void render_bar() {
+  void renderBar() {
       // Los módulos ya se actualizaron a través del scheduler
       static int renderCount = 0;
 
@@ -253,7 +253,7 @@ int i3_fd = workspace ? workspace->setup_select_fds(fds) : -1; // Escuchar cambi
       bar->feed();
   }
 
-  void handle_x_events(fd_set &fds) {
+  void handleXEvents(fd_set &fds) {
       // 2. EVENTOS X - just process them, don't render
       if (xcb_fd != -1 && FD_ISSET(xcb_fd, &fds)) {
            bar->processXEvents();
@@ -367,8 +367,8 @@ int main(int argc, char* argv[]) {
 
         // Registrar referencia global para callbacks
         {
-            std::lock_guard<std::mutex> lock(g_bar_manager_mutex);
-            g_bar_managers[0] = &barTop;
+            std::lock_guard<std::mutex> lock(gBarManagerMutex);
+            gBarManagers[0] = &barTop;
         }
 
         if (debug_log) {
@@ -393,8 +393,8 @@ int main(int argc, char* argv[]) {
 
     // Esperar a que la barra superior esté completamente inicializada
     {
-        std::unique_lock<std::mutex> lock(g_init_mutex);
-        g_init_cv.wait(lock, []{ return g_top_ready; });
+        std::unique_lock<std::mutex> lock(gInitMutex);
+        gInitCv.wait(lock, []{ return gTopReady; });
     }
 
     if (debug_log) {
@@ -422,8 +422,8 @@ int main(int argc, char* argv[]) {
 
         // Registrar referencia global para callbacks
         {
-            std::lock_guard<std::mutex> lock(g_bar_manager_mutex);
-            g_bar_managers[1] = &barBottom;
+            std::lock_guard<std::mutex> lock(gBarManagerMutex);
+            gBarManagers[1] = &barBottom;
         }
 
         if (debug_log) {

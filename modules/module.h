@@ -73,12 +73,12 @@ class Module {
     };
     std::function<void()> renderFunction;
     // Configuración de actualización
-    bool update_per_iteration;     // ¿Actualizar en cada ciclo?
+    bool updatePerIteration;     // ¿Actualizar en cada ciclo?
     int secondsPerUpdate;        // Intervalo en segundos
 
     // Estado de actualización
     time_t lastUpdate;            // Timestamp de última actualización
-    bool needs_update;             // Forzar actualización
+    bool needsUpdate;             // Forzar actualización
     bool autoUpdate;              // Control general de actualizaciones
 
     std::string name;

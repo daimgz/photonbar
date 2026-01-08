@@ -43,12 +43,12 @@ private:
         }
     }
 
-    void format_time(char* buffer, size_t buffer_size, long long elapsed_ms) {
-        int hours = elapsed_ms / 3600000;
-        int minutes = (elapsed_ms % 3600000) / 60000;
-        int seconds = (elapsed_ms % 60000) / 1000;
+    void formatTime(char* buffer, size_t bufferSize, long long elapsedMs) {
+        int hours = elapsedMs / 3600000;
+        int minutes = (elapsedMs % 3600000) / 60000;
+        int seconds = (elapsedMs % 60000) / 1000;
 
-        snprintf(buffer, buffer_size, "%02d:%02d:%02d", hours, minutes, seconds);
+        snprintf(buffer, bufferSize, "%02d:%02d:%02d", hours, minutes, seconds);
     }
 
     void playPause() {
@@ -147,7 +147,7 @@ public:
 
         long long elapsed = get_elapsed_ms();
         char time_buffer[64];
-        format_time(time_buffer, sizeof(time_buffer), elapsed);
+        formatTime(time_buffer, sizeof(time_buffer), elapsed);
 
         // Logo (siempre visible)
         baseElement.contentLen = snprintf(

@@ -33,7 +33,7 @@ public:
     }
     static Color parse_color (const char *str, char **end, const Color def)
     {
-        int string_len;
+        int stringLen;
         char *ep;
 
         if (!str)
@@ -69,9 +69,9 @@ public:
             return def;
         }
 
-        string_len = ep - (str + 1);
+        stringLen = ep - (str + 1);
 
-        switch (string_len) {
+        switch (stringLen) {
             case 3:
                 // Expand the #rgb format into #rrggbb (aa is set to 0xff)
                 tmp.v = (tmp.v & 0xf00) * 0x1100

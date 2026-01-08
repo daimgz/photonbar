@@ -36,7 +36,7 @@ class WorkspaceModule : public Module {
       return i3Fd != -1;
     }
 
-    int setup_select_fds(fd_set &fds) {
+    int setupSelectFds(fd_set &fds) {
       if (i3Fd != -1) {
         FD_SET(i3Fd, &fds);
         return i3Fd;

@@ -25,7 +25,7 @@ private:
     void removeLockFile();
     
     static void signalHandler(int signal);
-    static ProcessManager* g_instance;
+    static ProcessManager* gInstance;
 };
 
 #endif

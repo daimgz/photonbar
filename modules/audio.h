@@ -18,7 +18,7 @@ struct SinkInfo {
     std::string name;
     uint32_t index;
     int volume;
-    bool is_muted;
+    bool isMuted;
 };
 
 class AudioModule : public Module {
@@ -104,7 +104,7 @@ private:
         SinkInfo s;
         s.name = i->name;
         s.index = i->index;
-        s.is_muted = i->mute;
+        s.isMuted = i->mute;
         s.volume = (int)pa_cvolume_avg(&(i->volume)) * 100 / PA_VOLUME_NORM;
 
         self->allSinks.push_back(s);
@@ -136,7 +136,7 @@ private:
     }
 
     void toggleMute() {
-        pa_operation* o = pa_context_set_sink_mute_by_index(context, currentSink.index, !currentSink.is_muted, NULL, NULL);
+        pa_operation* o = pa_context_set_sink_mute_by_index(context, currentSink.index, !currentSink.isMuted, NULL, NULL);
         if (o) {
             while (pa_operation_get_state(o) == PA_OPERATION_RUNNING) pa_mainloop_iterate(mainloop, 1, NULL);
             pa_operation_unref(o);
@@ -203,7 +203,7 @@ private:
         baseElement.dirtyContent = true;
 
         // Actualizar color según estado de mute
-        if (currentSink.is_muted) {
+        if (currentSink.isMuted) {
             baseElement.foregroundColor = Color::parse_color("#FF6B6B", NULL, Color(255, 107, 107, 255)); // Rojo
         } else {
             baseElement.foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255)); // Morado

@@ -41,15 +41,15 @@ private:
         auto now = std::chrono::steady_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime);
 
-        long long actual_elapsed;
+        long long actualElapsed;
         if (isPaused) {
             auto pause_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(pauseTime - startTime);
-            actual_elapsed = pause_elapsed.count() - accumulatedPauseTime;
+            actualElapsed = pause_elapsed.count() - accumulatedPauseTime;
         } else {
-            actual_elapsed = elapsed.count() - accumulatedPauseTime;
+            actualElapsed = elapsed.count() - accumulatedPauseTime;
         }
 
-        long long remaining = targetDurationMs - actual_elapsed;
+        long long remaining = targetDurationMs - actualElapsed;
         return remaining > 0 ? remaining : 0;
     }
 
