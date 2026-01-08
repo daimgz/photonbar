@@ -8,39 +8,15 @@
 #include <sys/statvfs.h>
 #include <string>
 #include "module.h"
-#include <fmt/format.h>
+#include "../barElement.h"
+#include "../color.h"
+
 
 class SpaceModule : public Module {
-  public:
-    SpaceModule():
-      Module("space"),
-      partition("/"),
-      name("\uf0c7"),
-      display_mode(0) {
-      // Configurar actualización cada 30 segundos
-      setSecondsPerUpdate(30);
-      update_per_iteration = false;
-    }
-
-    void update() override {
-      getSpaceUsage();
-      generateBuffer();
-    }
-
-    void event(const char* eventValue) override {
-      if (strstr(eventValue, "sp_click")) {
-        if (strstr(eventValue, "right")) {
-          // Click derecho: ciclar entre modos de visualización
-          display_mode = (display_mode + 1) % NUM_DISPLAY_MODES;
-        } else {
-          // Click izquierdo: alternar modo
-          display_mode = (display_mode + 1) % NUM_DISPLAY_MODES;
-        }
-        markForUpdate();
-      }
-    }
-
   private:
+    // Elementos de la UI
+    BarElement baseElement;
+
     // Constantes para modos de visualización
     static const int DISPLAY_FREE = 1;        // Espacio libre en GB
     static const int DISPLAY_USED_PERCENTAGE = 2;  // Porcentaje usado
@@ -55,9 +31,6 @@ class SpaceModule : public Module {
     double free_gb;
     double used_percentage;
     time_t cache_until;
-
-    // Textos de visualización
-    std::string display_texts[NUM_DISPLAY_MODES];
 
     void getSpaceUsage() {
       struct statvfs vfs;
@@ -82,37 +55,85 @@ class SpaceModule : public Module {
       cache_until = time(nullptr) + 1; // Cache por 1 segundo
     }
 
-    std::string getDisplayText(int mode) {
-      switch(mode) {
-        case DISPLAY_FREE:
-          return fmt::format("{} {:.2f}GB", name, free_gb);
-        case DISPLAY_USED_PERCENTAGE:
-          return fmt::format("{} {:.0f}%", name, used_percentage);
-        default:
-          return fmt::format("{} {:.2f}GB", name, free_gb);
-      }
+
+
+  public:
+    SpaceModule():
+      Module("space", false, 30),  // No auto-update, cada 30 segundos
+      partition("/"),
+      name("\uf0c7"),
+      display_mode(0)
+    {
+      // Configurar elemento base
+      baseElement.moduleName = name;
+
+      // Click izquierdo: ciclar entre modos de visualización
+      baseElement.setEvent(BarElement::CLICK_LEFT, [this]() {
+        display_mode = (display_mode + 1) % NUM_DISPLAY_MODES;
+        update();
+        if (renderFunction) {
+          renderFunction();
+        }
+      });
+
+      // Click derecho: también ciclar entre modos (igual que izquierdo en original)
+      baseElement.setEvent(BarElement::CLICK_RIGHT, [this]() {
+        display_mode = (display_mode + 1) % NUM_DISPLAY_MODES;
+        update();
+        if (renderFunction) {
+          renderFunction();
+        }
+      });
+
+      // Color base del texto (igual al COLOR_FG del sistema original)
+      baseElement.foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
+
+      elements.push_back(&baseElement);
     }
 
-    void generateBuffer() {
-      // Construir textos de visualización
-      display_texts[DISPLAY_FREE - 1] = getDisplayText(DISPLAY_FREE);
-      display_texts[DISPLAY_USED_PERCENTAGE - 1] = getDisplayText(DISPLAY_USED_PERCENTAGE);
+    void update() override {
+      getSpaceUsage();
 
-      // Seleccionar texto según modo actual
+      // Generar texto según modo actual usando snprintf estándar
       int mode_idx = display_mode % NUM_DISPLAY_MODES;
-      std::string display_text = display_texts[mode_idx];
-
-      // Formato final para la barra
-      buffer = "%{A1:sp_click:}";
-
-      // Si es modo de espacio libre (show cache indicator)
-      if (display_mode % NUM_DISPLAY_MODES == 0) {
-        buffer += display_text + " %{F-}";
-      } else {
-        buffer += display_text;
+      
+      switch(mode_idx) {
+        case DISPLAY_FREE:
+          baseElement.contentLen = snprintf(
+            baseElement.content,
+            CONTENT_MAX_LEN,
+            "%s %.2fGB",
+            name.c_str(),
+            free_gb
+          );
+          break;
+        case DISPLAY_USED_PERCENTAGE:
+          baseElement.contentLen = snprintf(
+            baseElement.content,
+            CONTENT_MAX_LEN,
+            "%s %.0f%%",
+            name.c_str(),
+            used_percentage
+          );
+          break;
+        default:
+          baseElement.contentLen = snprintf(
+            baseElement.content,
+            CONTENT_MAX_LEN,
+            "%s %.2fGB",
+            name.c_str(),
+            free_gb
+          );
+          break;
       }
 
-      buffer += "%{A}";
+      baseElement.dirtyContent = true;
+
+      // Color fijo igual al original
+      baseElement.foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
+
+      // 🔥 CRÍTICO: Actualizar timestamp
+      lastUpdate = time(nullptr);
     }
 };
 

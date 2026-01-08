@@ -8,91 +8,81 @@
 #include <ctime>
 #include <algorithm>
 #include <cstring>
+#include "../barElement.h"
 
 // Forward declaration
 class BarManager;
 
 class Module {
   public:
-    //enum EventType {
-      //NONE,
-      //LEFT_CLICK,
-      //MIDDLE_CLICK,
-      //RIGHT_CLICK,
-      //SCROLL_UP,
-      //SCROLL_DOWN
-    //};
 
     // Colores comunes para todos los módulos
-    static constexpr const char* COLOR_FG = "#E0AAFF";    // Lila claro del tema
-    static constexpr const char* COLOR_ALERT = "#FF6B6B";  // Rojo suave para alertas
-    static constexpr const char* COLOR_MUTED = "#FF6B6B";   // Rojo para estado muteado
-
     static constexpr const char* COLOR_RED = "#FF6B6B";   // Rojo para estado muteado
+
+    xcb_window_t window;
+    int fontIndex;          // -1 = automático
+    int screenTarget;       // +/-/f/l/número
 
     const std::string& getName() const {
       return name;
     }
 
+    std::vector<BarElement*> getElements() {
+      return elements;
+    }
+
     virtual void update() = 0;
-    virtual void event(const char* eventValue) = 0;
     virtual bool initialize() { return true; } // Default implementation for modules that don't need initialization
 
-    // Método para manejar clics (puede ser sobrescrito)
-    virtual bool handleClick(const char* eventValue) {
-        if (eventValue && strlen(eventValue) > 0) {
-            event(eventValue);
-            if (update_on_click) {
-                update();
-            }
-            return render_on_click;
-        }
-        return false;
-    }
-
     // Métodos de control de actualización
+  //
     bool shouldUpdate() {
-      if (!auto_update) return false;
-      if (needs_update) return true;
-
-      if (update_per_iteration) return true;
-
+      if (autoUpdate) return true; // Actulizar por cada render
+      std::cout << "llegamos al should update" << std::endl;
       time_t now = time(nullptr);
-      return (now - last_update) >= seconds_per_update;
+      std::cout << "now: " << now << " lastUpdate: " << lastUpdate << " secondsPerUpdate: " << secondsPerUpdate << std::endl;
+      return (now - lastUpdate) >= secondsPerUpdate;
     }
 
-    void markForUpdate() { needs_update = true; }
-    void setAutoUpdate(bool enabled) { auto_update = enabled; }
-    void setUpdatePerIteration(bool enabled) { update_per_iteration = enabled; }
-    void setSecondsPerUpdate(int seconds) { seconds_per_update = seconds; }
+    bool checkAndUpdate() {
+      if (shouldUpdate()) {
+        std::cout << "se actualiza el modulo " << name << std::endl;
+        update();
+        return true;
+      }
+      return false;
+    }
+
+    void setRenderFunction(std::function<void()> renderFunction) {
+      this->renderFunction = renderFunction;
+    }
+
 
   protected:
-    Module(std::string name):
-      update_per_iteration(true),
-      seconds_per_update(1),
-      last_update(0),
-      needs_update(true),
-      auto_update(true),
-      update_on_click(true),
-      render_on_click(true),
+    void setAutoUpdate(bool enabled) { autoUpdate = enabled; }
+    void setSecondsPerUpdate(int seconds) { secondsPerUpdate = seconds; }
+
+    Module(std::string name, bool autoUpdate, int secondsPerUpdate) :
+      fontIndex(-1),
+      screenTarget(0),
+      secondsPerUpdate(secondsPerUpdate),
+      lastUpdate(0),
+      autoUpdate(autoUpdate),
       name(name)
     {
     };
-
+    std::function<void()> renderFunction;
     // Configuración de actualización
     bool update_per_iteration;     // ¿Actualizar en cada ciclo?
-    int seconds_per_update;        // Intervalo en segundos
+    int secondsPerUpdate;        // Intervalo en segundos
 
     // Estado de actualización
-    time_t last_update;            // Timestamp de última actualización
+    time_t lastUpdate;            // Timestamp de última actualización
     bool needs_update;             // Forzar actualización
-    bool auto_update;              // Control general de actualizaciones
-
-    // Configuración de comportamiento en clics
-    bool update_on_click;          // Actualizar instantáneamente en clic
-    bool render_on_click;           // Forzar renderizado en clic
+    bool autoUpdate;              // Control general de actualizaciones
 
     std::string name;
+    std::vector<BarElement*> elements;
 
     // Permitir acceso a BarManager
     friend class BarManager;

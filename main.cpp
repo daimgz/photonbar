@@ -1,3 +1,5 @@
+#include "modules/ping.h"
+#include "process_manager.h"
 #define _POSIX_C_SOURCE 200809L
 #define _BSD_SOURCE
 #define I3IPC_IMPLEMENTATION  // For single-header i3ipc library
@@ -76,33 +78,33 @@ public:
     isTop(isTop),
     xcb_fd(-1)
   {
-
     // Guardar las direcciones de los módulos pasados por parámetro
     for (Module* module : leftModules) {
         modules.push_back(module);
     }
+
     for (Module* module : rightModules) {
         modules.push_back(module);
     }
 
     // Encontrar y guardar referencia al módulo workspace
     for (auto* module : modules) {
+        module->setRenderFunction([this]() { render_bar(); });
         if (module->getName() == "workspace") {
             workspace = static_cast<WorkspaceModule*>(module);
-            break;
         }
     }
 
     bar = new Bar(
       name,
       COLOR_BG,
+      COLOR_FG,
       this->isTop,
       {std::string(FONT_TEXT), std::string(FONT_ICON)},
-      [this](const char* input) {
-        handle_click_wrapper(input);
-      }
+      leftModules,
+      rightModules
     );
-    xcb_fd = bar->lemonbar_get_xcb_fd();
+    xcb_fd = bar->getXcbFd();
   }
 
   bool initialize() {
@@ -125,10 +127,10 @@ public:
       return true;
   }
 
-  void run() {
-      render_bar(); // Initial render
+   void run() {
+       render_bar(); // Initial render
 
-      while (!g_shutdown.load()) {
+       while (!g_shutdown.load()) {
           struct timeval tv;
           fd_set fds;
           struct timespec ts;
@@ -140,12 +142,12 @@ public:
 
            FD_ZERO(&fds);
            if (xcb_fd != -1) FD_SET(xcb_fd, &fds); // Escuchar eventos X
-           int i3_fd = workspace ? workspace->setup_select_fds(fds) : -1; // Escuchar cambios de escritorio
+int i3_fd = workspace ? workspace->setup_select_fds(fds) : -1; // Escuchar cambios de escritorio
 
-           // Calcular max_fd correctamente cuando no hay workspace
-           int max_fd = -1;
-           if (xcb_fd != -1) max_fd = xcb_fd;
-           if (i3_fd > max_fd) max_fd = i3_fd;
+            // Calcular max_fd correctamente cuando no hay workspace
+            int max_fd = -1;
+            if (xcb_fd != -1) max_fd = xcb_fd;
+            if (i3_fd > max_fd) max_fd = i3_fd;
 
            int ret;
            // Si no hay file descriptors válidos, usar timeout
@@ -171,13 +173,14 @@ public:
                handle_x_events(fds);
            }
 
-           // Determinar si necesitamos actualizar módulos
-           bool should_update = false;
-           if (workspace_changed) {
-               fprintf(stderr, "[BarManager] Workspace changed, marking for update\n");
-               markForUpdate("workspace");
-               should_update = true;
-           } else if (ret == 0) {
+// Determinar si necesitamos actualizar módulos
+            bool should_update = false;
+            if (workspace_changed) {
+                fprintf(stderr, "[BarManager] Workspace changed, marking for update\n");
+                workspace->update();
+                should_update = true;
+            } else
+          if (ret == 0) {
                // Timeout reached - revisar módulos para actualización periódica
                fprintf(stderr, "[BarManager] Timeout reached, checking modules\n");
                should_update = true;
@@ -230,21 +233,10 @@ public:
 
   void updateModules() {
       any_updated = false;
-      for (auto* module : modules) {
-          if (module->shouldUpdate()) {
-              module->update();
-              module->last_update = time(nullptr);
-              module->needs_update = false;
+      for (Module* module : modules) {
+          if (module->checkAndUpdate()) {
               any_updated = true;
           }
-      }
-  }
-
-  void markForUpdate(const std::string& moduleName) {
-      auto it = std::find_if(modules.begin(), modules.end(),
-          [&moduleName](Module* m) { return m->getName() == moduleName; });
-      if (it != modules.end()) {
-          (*it)->markForUpdate();
       }
   }
 
@@ -252,79 +244,13 @@ public:
       return any_updated;
   }
 
-  void setAllAutoUpdate(bool enabled) {
-      for (auto* module : modules) {
-          module->setAutoUpdate(enabled);
-      }
-  }
-
-   void handle_click_wrapper(const char *input) {
-       bool needs_update = handle_click(input);
-
-       // Si el clic requiere actualización, renderizar inmediatamente
-       if (needs_update) {
-           render_bar();
-       }
-   }
-
-   bool handle_click(const char *input) {
-       // Make a local copy as callers may pass internal pointers
-       char buf[256];
-       snprintf(buf, sizeof(buf), "%s", input ? input : "");
-
-       fprintf(stderr, "[BarManager] handle_click: received '%s'\n", buf);
-
-       // Llamar handleClick en todos los módulos usando el array
-       bool needs_update = false;
-       for (auto& module : modules) {
-           needs_update = module->handleClick(buf);
-       }
-
-       return needs_update;
-   }
-
   void render_bar() {
       // Los módulos ya se actualizaron a través del scheduler
-      char buf[8000];
       static int renderCount = 0;
 
-      // Construir buffer
-      std::string output = "%{l}";
-
-      // Módulos izquierdos con separadores
-      bool first_left = true;
-      for (Module* module : leftModules) {
-          if (!first_left) {
-              output += "%{F" + std::string(COLOR_SEP) + "}" + SEP_SYM + "%{F-}";
-          }
-          first_left = false;
-
-          output += "%{F" + std::string(COLOR_FG) + "}";
-          output += module->getBuffer();
-      }
-
-      output += "%{r}";
-
-      // Módulos derechos con separadores
-      bool first = true;
-      for (Module* module : rightModules) {
-          if (!first) {
-              output += "%{F" + std::string(COLOR_SEP) + "}" + SEP_SYM + "%{F-}";
-          }
-          first = false;
-
-          output += "%{F" + std::string(COLOR_FG) + "}";
-          output += module->getBuffer();
-      }
-
-      output += " %{F" + std::string(COLOR_SEP) + "}\n";
-
-      int n = snprintf(buf, sizeof(buf), "%s", output.c_str());
-      if (n > 0) {
-          renderCount++;
-          fprintf(stderr, "[BarManager] Rendering bar with content: %s\n num: %i", buf, renderCount);
-          bar->lemonbar_feed(buf);
-      }
+      renderCount++;
+      fprintf(stderr, "[BarManager] Rendering bar with content, num: %i", renderCount);
+      bar->feed();
   }
 
   void handle_x_events(fd_set &fds) {
@@ -335,7 +261,7 @@ public:
   }
 };
 
-// --- MAIN LOOP ACTUALIZADO ---
+// --- MAIN LOOP CON HILOS ---
 int main(int argc, char* argv[]) {
     bool restart_mode = false;
     bool no_lock = false;
@@ -412,13 +338,14 @@ int main(int argc, char* argv[]) {
     static BatteryModule battery_top;
     static DateTimeModule datetime_top;
     static WeatherModule weather_top;
-    static SpaceModule space_bottom;
-    static ResourcesModule resources_bottom;
+
+    // Módulos para barra inferior
     static PingModule ping_bottom;
-    static StopwatchModule stopwatch_top;
-    static StopwatchModule stopwatch_bottom;
-    static TimerModule timer_top;
     static TimerModule timer_bottom;
+    static StopwatchModule stopwatch_bottom;
+    static SpaceModule space_bottom;
+    static AudioModule audio_bottom;
+    static ResourcesModule resources_bottom;
 
     // Thread para inicializar y ejecutar barra superior
     std::thread top_thread([debug_log]() {
@@ -475,11 +402,11 @@ int main(int argc, char* argv[]) {
         fflush(debug_log);
     }
 
-    // Thread para inicializar y ejecutar barra inferior (con timer y stopwatch)
+    // Thread para inicializar y ejecutar barra inferior
     std::thread bottom_thread([debug_log]() {
         std::vector<Module*> left_modules;
-        left_modules.push_back(&timer_bottom);
-        left_modules.push_back(&stopwatch_bottom);
+       left_modules .push_back(&timer_bottom);
+       left_modules .push_back(&stopwatch_bottom);
 
         std::vector<Module*> right_modules;
         right_modules.push_back(&space_bottom);
@@ -521,6 +448,11 @@ int main(int argc, char* argv[]) {
 
     if (debug_log) {
         fprintf(debug_log, "Ambas barras en ejecución en hilos separados\n");
+        fflush(debug_log);
+    }
+
+    if (debug_log) {
+        fprintf(debug_log, "Ambas barras iniciadas, esperando...\n");
         fflush(debug_log);
     }
 

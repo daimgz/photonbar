@@ -5,9 +5,22 @@
 #include <stdio.h>
 #include <string.h>
 #include "module.h"
+#include "../color.h"
 
 class TimerModule : public Module {
 private:
+    // 5 elementos principales
+    BarElement baseElement;
+    BarElement playIconElement;
+    BarElement hourElement;
+    BarElement minuteElement;
+    BarElement secondElement;
+
+    // Gestión de elementos
+    std::vector<BarElement*> timeElements;
+    std::vector<BarElement*> allElements;
+
+    // Estado del timer (igual que el sistema viejo)
     std::chrono::steady_clock::time_point start_time;
     std::chrono::steady_clock::time_point pause_time;
     bool is_running = false;
@@ -19,6 +32,8 @@ private:
     static constexpr const char* ICON_PLAY = " \uf04b";
     static constexpr const char* ICON_PAUSE = " \uf04c";
     static constexpr const char* ICON_LOGO = u8"\U000f06ad";
+
+    // Ya no necesitamos esta función - el timer debe seguir corriendo visualmente
 
     long long get_remaining_ms() {
         if (!is_running) return target_duration_ms;
@@ -38,120 +53,219 @@ private:
         return remaining > 0 ? remaining : 0;
     }
 
-    void adjust_time(long long ms) {
-        // Solo permitir modificar si el timer no está en ejecución
+    void adjustTime(long long ms) {
         if (is_running) return;
 
         target_duration_ms += ms;
         if (target_duration_ms < 0) target_duration_ms = 0;
-        markForUpdate();
+
+        update();
+        if (renderFunction) renderFunction();
+    }
+
+    void playPause() {
+        if (!is_running) {
+            if (target_duration_ms > 0) {
+                start_time = std::chrono::steady_clock::now();
+                is_running = true;
+                is_paused = false;
+                accumulated_pause_time = 0;
+            }
+        } else if (is_paused) {
+            auto now = std::chrono::steady_clock::now();
+            accumulated_pause_time += std::chrono::duration_cast<std::chrono::milliseconds>(now - pause_time).count();
+            is_paused = false;
+        } else {
+            pause_time = std::chrono::steady_clock::now();
+            is_paused = true;
+        }
+
+        update();
+        if (renderFunction) renderFunction();
+    }
+
+    void reset() {
+        // Solo bloquear reset si está corriendo y el tiempo NO se ha agotado
+        if (is_running && !is_paused && get_remaining_ms() > 0) return;
+        
+        accumulated_pause_time = 0;
+        target_duration_ms = 0;
+        
+        // Cambiar estados al final
+        is_running = false;
+        is_paused = false;
+
+        update();
+        if (renderFunction) renderFunction();
+    }
+
+    void toggleDetails() {
+        show_details = !show_details;
+
+        update();
+        if (renderFunction) renderFunction();
+    }
+
+    void setupAllElements() {
+        // Configurar moduleName para todos los elementos
+        baseElement.moduleName = name;
+        playIconElement.moduleName = name;
+        hourElement.moduleName = name;
+        minuteElement.moduleName = name;
+        secondElement.moduleName = name;
+        
+        // Almacenar referencias
+        allElements = {&baseElement, &playIconElement, &hourElement, 
+                       &minuteElement, &secondElement};
+        timeElements = {&hourElement, &minuteElement, &secondElement};
+        
+        // Agregar TODOS los elementos al vector (nunca se modifica)
+        elements.push_back(&baseElement);
+        elements.push_back(&playIconElement);
+        elements.push_back(&hourElement);
+        elements.push_back(&minuteElement);
+        elements.push_back(&secondElement);
+    }
+
+    void configureAllEvents() {
+        // Configurar clicks en TODOS los elementos
+        for (auto* elem : allElements) {
+            elem->setEvent(BarElement::CLICK_LEFT, [this]() { playPause(); });
+            elem->setEvent(BarElement::CLICK_MIDDLE, [this]() { reset(); });
+            elem->setEvent(BarElement::CLICK_RIGHT, [this]() { toggleDetails(); });
+        }
+
+        // Scroll SOLO en elementos de tiempo
+        hourElement.setEvent(BarElement::SCROLL_UP, [this]() { adjustTime(3600000); });
+        hourElement.setEvent(BarElement::SCROLL_DOWN, [this]() { adjustTime(-3600000); });
+
+        minuteElement.setEvent(BarElement::SCROLL_UP, [this]() { adjustTime(60000); });
+        minuteElement.setEvent(BarElement::SCROLL_DOWN, [this]() { adjustTime(-60000); });
+
+        secondElement.setEvent(BarElement::SCROLL_UP, [this]() { adjustTime(1000); });
+        secondElement.setEvent(BarElement::SCROLL_DOWN, [this]() { adjustTime(-1000); });
+    }
+
+    // Ya no necesitamos esta función - la visibilidad se maneja con contentLen = 0
+
+    void applyColors() {
+        Color defaultColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
+        Color redColor = Color::parse_color("#FF0000", NULL, Color(255, 0, 0, 255));
+        Color orangeColor = Color::parse_color("#FFA500", NULL, Color(255, 165, 0, 255));
+        Color greenColor = Color::parse_color("#90EE90", NULL, Color(144, 238, 144, 255));
+
+        // Aplicar colores a todos los elementos según estado
+        for (auto* elem : allElements) {
+            if (!is_running) {
+                elem->foregroundColor = defaultColor;
+            } else if (is_paused) {
+                elem->foregroundColor = orangeColor;
+            } else if (get_remaining_ms() == 0) {
+                elem->foregroundColor = redColor;
+            } else {
+                elem->foregroundColor = greenColor;
+            }
+        }
     }
 
 public:
-    // Constructor por defecto inicializa todo en 0
-    TimerModule() : Module("timer") {
-        target_duration_ms = 0;
-        setSecondsPerUpdate(1);
-        setUpdatePerIteration(true);
+    TimerModule() : Module("timer", false, 1) {
+        setupAllElements();
+        configureAllEvents();
+    }
+
+    ~TimerModule() {
+        // Los elementos son estáticos, no necesitan limpieza manual
+        // Solo limpiamos las referencias si fuera necesario
+        timeElements.clear();
+        allElements.clear();
     }
 
     void update() override {
-        const char* action_icon = "";
-        static char color_tag[32];
+        applyColors();
 
-        if (!is_running) {
-            sprintf(color_tag, "%%{F%s}", Module::COLOR_FG);
-        } else if (is_paused) {
-            sprintf(color_tag, "%%{F#FFA500}");
-            action_icon = ICON_PLAY;
-        } else {
-            sprintf(color_tag, "%%{F#90EE90}");
-            action_icon = ICON_PAUSE;
-        }
-
-        // Color rojo si el tiempo se agota
-        if (is_running && !is_paused && get_remaining_ms() == 0) {
-            sprintf(color_tag, "%%{F#FF0000}");
-        }
-
-        // --- MODO COMPACTO ---
-        if (!show_details) {
-            std::string base = "%{A2:timer_reset:}%{A3:timer_toggle:}";
-            if (!is_running) {
-                base += "%{A4:timer_min_up:}%{A5:timer_min_down:}";
-            }
-            base += color_tag + std::string(ICON_LOGO) + "%{F-}%{A}%{A}";
-            if (!is_running) base += "%{A}%{A}";
-            buffer = base;
-            return;
-        }
-
-        // --- MODO DETALLADO ---
         long long remaining = get_remaining_ms();
         int hours = remaining / 3600000;
         int minutes = (remaining % 3600000) / 60000;
         int seconds = (remaining % 60000) / 1000;
 
-        char temp_buffer[1024];
-        char h_str[128], m_str[128], s_str[128];
+        // Logo (siempre visible)
+        baseElement.contentLen = snprintf(
+            baseElement.content,
+            CONTENT_MAX_LEN,
+            "%s",
+            ICON_LOGO
+        );
+        
+        // El logo siempre necesita actualizarse por cambios de color
+        baseElement.dirtyContent = true;
 
-        if (!is_running) {
-            // Generar áreas de scroll solo si no está corriendo
-            snprintf(h_str, sizeof(h_str), "%%{A4:timer_hr_up:}%%{A5:timer_hr_down:}-%02d%%{A}%%{A}", hours);
-            snprintf(m_str, sizeof(m_str), "%%{A4:timer_min_up:}%%{A5:timer_min_down:}%02d%%{A}%%{A}", minutes);
-            snprintf(s_str, sizeof(s_str), "%%{A4:timer_sec_up:}%%{A5:timer_sec_down:}%02d%%{A}%%{A}", seconds);
-        } else {
-            // Texto estático mientras corre
-            snprintf(h_str, sizeof(h_str), "-%02d", hours);
-            snprintf(m_str, sizeof(m_str), "%02d", minutes);
-            snprintf(s_str, sizeof(s_str), "%02d", seconds);
-        }
-
-        snprintf(temp_buffer, sizeof(temp_buffer),
-                "%%{A1:timer_play_pause:}%%{A2:timer_reset:}%%{A3:timer_toggle:}%s%s%s %s:%s:%s%%{F-}%%{A}%%{A}%%{A}",
-                color_tag, ICON_LOGO, action_icon, h_str, m_str, s_str);
-
-        buffer = temp_buffer;
-    }
-
-    void event(const char* eventValue) override {
-        if (strstr(eventValue, "timer_reset")) {
-            // Volver todo a cero y detener
-            is_running = false;
-            is_paused = false;
-            accumulated_pause_time = 0;
-            target_duration_ms = 0;
-        }
-        else if (strstr(eventValue, "timer_play_pause")) {
+        // Icono play/pause (solo visible cuando show_details = true)
+        if (show_details) {
             if (!is_running) {
-                // Solo inicia si el usuario configuró algún tiempo > 0
-                if (target_duration_ms > 0) {
-                    start_time = std::chrono::steady_clock::now();
-                    is_running = true;
-                    is_paused = false;
-                    accumulated_pause_time = 0;
-                }
-            } else if (is_paused) {
-                auto now = std::chrono::steady_clock::now();
-                accumulated_pause_time += std::chrono::duration_cast<std::chrono::milliseconds>(now - pause_time).count();
-                is_paused = false;
+                // Cuando no está corriendo pero se muestra, mostrar play
+                playIconElement.contentLen = snprintf(
+                    playIconElement.content,
+                    CONTENT_MAX_LEN,
+                    "%s ",
+                    ICON_PLAY
+                );
             } else {
-                pause_time = std::chrono::steady_clock::now();
-                is_paused = true;
+                // Cuando está corriendo, mostrar estado actual
+                const char* icon = is_paused ? ICON_PLAY : ICON_PAUSE;
+                playIconElement.contentLen = snprintf(
+                    playIconElement.content,
+                    CONTENT_MAX_LEN,
+                    "%s ",
+                    icon
+                );
             }
+            playIconElement.dirtyContent = true;
+        } else {
+            // Ocultar playIcon cuando está en modo oculto (forzar actualización)
+            playIconElement.contentLen = snprintf(playIconElement.content, CONTENT_MAX_LEN, "");
+            playIconElement.dirtyContent = true;  // Forzar actualización para ocultar
         }
-        else if (strstr(eventValue, "timer_toggle")) {
-            show_details = !show_details;
-        }
-        // Eventos de scroll
-        else if (strstr(eventValue, "timer_hr_up"))   adjust_time(3600000);
-        else if (strstr(eventValue, "timer_hr_down")) adjust_time(-3600000);
-        else if (strstr(eventValue, "timer_min_up"))  adjust_time(60000);
-        else if (strstr(eventValue, "timer_min_down")) adjust_time(-60000);
-        else if (strstr(eventValue, "timer_sec_up"))  adjust_time(1000);
-        else if (strstr(eventValue, "timer_sec_down")) adjust_time(-1000);
 
-        markForUpdate();
+        // Elementos de tiempo
+        if (show_details) {
+            hourElement.contentLen = snprintf(
+                hourElement.content,
+                CONTENT_MAX_LEN,
+                "-%02d:",
+                hours
+            );
+            hourElement.dirtyContent = true;
+
+            minuteElement.contentLen = snprintf(
+                minuteElement.content,
+                CONTENT_MAX_LEN,
+                "%02d:",
+                minutes
+            );
+            minuteElement.dirtyContent = true;
+
+            secondElement.contentLen = snprintf(
+                secondElement.content,
+                CONTENT_MAX_LEN,
+                "%02d",
+                seconds
+            );
+            secondElement.dirtyContent = true;
+        } else {
+            // Ocultar elementos de tiempo cuando está en modo oculto
+            hourElement.contentLen = snprintf(hourElement.content, CONTENT_MAX_LEN, "");
+            hourElement.dirtyContent = true;  // Forzar actualización para ocultar
+            
+            minuteElement.contentLen = snprintf(minuteElement.content, CONTENT_MAX_LEN, "");
+            minuteElement.dirtyContent = true;  // Forzar actualización para ocultar
+            
+            secondElement.contentLen = snprintf(secondElement.content, CONTENT_MAX_LEN, "");
+            secondElement.dirtyContent = true;  // Forzar actualización para ocultar
+        }
+
+        // Actualizar timestamp - CRÍTICO
+        lastUpdate = time(nullptr);
     }
 };
 

@@ -17,10 +17,11 @@ private:
     static constexpr const char* ICON_NET   = "\uef09"; // 󪩚 (Pulso/Ping)
     static constexpr const char* ICON_DOWN  = "\uea9d"; //  (Flecha abajo)
     static constexpr const char* ICON_UP    = "\ueaa0"; //  (Flecha arriba)
-    static constexpr const char* ICON_BASIC = "\xef\x9e\x96"; //  (Icono red simple)
 
     unsigned long long last_sent = 0;
     unsigned long long last_recv = 0;
+
+    BarElement baseElement;
 
     float get_ping() {
         char cmd[128];
@@ -57,17 +58,23 @@ private:
     }
 
 public:
-    PingModule() : Module("network") {
-        setSecondsPerUpdate(1);
+    PingModule() : Module("network", false, 1) {
         get_network_io(last_sent, last_recv);
+
+        baseElement.moduleName = name;
+        baseElement.setEvent(
+            BarElement::CLICK_LEFT,
+            [this](){
+                this->show_details = !this->show_details;
+                update();
+                renderFunction();
+            }
+        );
+
+        elements.push_back(&baseElement);
     }
 
-    void update() override {
-        if (!show_details) {
-            buffer = ICON_BASIC;
-            return;
-        }
-
+    void update() {
         unsigned long long current_sent, current_recv;
         get_network_io(current_sent, current_recv);
         float ping = get_ping();
@@ -81,22 +88,37 @@ public:
         last_sent = current_sent;
         last_recv = current_recv;
 
-        char temp_buffer[256];
-        if (ping >= 0) {
-            // Usamos los iconos definidos arriba
-            snprintf(temp_buffer, sizeof(temp_buffer),
-                     "%s %.1fms %s%.1fK %s%.1fK",
-                     ICON_NET, (double)ping, ICON_UP, up_speed, ICON_DOWN, down_speed);
-        } else {
-            snprintf(temp_buffer, sizeof(temp_buffer),
-                     "%s Off %s%.1fK %s%.1fK",
-                     ICON_NET, ICON_UP, up_speed, ICON_DOWN, down_speed);
+        if (!show_details) {
+            baseElement.contentLen = snprintf(
+                baseElement.content,
+                CONTENT_MAX_LEN,
+                "%s",
+                ICON_NET
+            );
+            baseElement.dirtyContent = true;
+            lastUpdate = time(nullptr);
+            return;
         }
 
-        buffer = temp_buffer;
+        if (ping >= 0) {
+            baseElement.contentLen = snprintf(
+                baseElement.content,
+                CONTENT_MAX_LEN,
+                "%s %.1fms %s%.1fK %s%.1fK",
+                ICON_NET, (double)ping, ICON_UP, up_speed, ICON_DOWN, down_speed
+            );
+        } else {
+            baseElement.contentLen = snprintf(
+                baseElement.content,
+                CONTENT_MAX_LEN,
+                "%s Off %s%.1fK %s%.1fK",
+                ICON_NET, ICON_UP, up_speed, ICON_DOWN, down_speed
+            );
+        }
+        baseElement.dirtyContent = true;
+        lastUpdate = time(nullptr);
+        std::cout << "the ping was updated :D" << std::endl;
     }
-
-    void event(const char* eventValue) override {}
 };
 
 #endif

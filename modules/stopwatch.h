@@ -5,9 +5,18 @@
 #include <stdio.h>
 #include <string.h>
 #include "module.h"
+#include "../color.h"
 
 class StopwatchModule : public Module {
 private:
+    // 2 elementos principales: logo y tiempo
+    BarElement baseElement;
+    BarElement timeElement;
+    
+    // Gestión de elementos
+    std::vector<BarElement*> allElements;
+    
+    // Estado del stopwatch
     std::chrono::steady_clock::time_point start_time;
     std::chrono::steady_clock::time_point pause_time;
     bool is_running = false;
@@ -15,7 +24,6 @@ private:
     bool show_details = false;
     long long accumulated_pause_time = 0;
 
-    // Iconos de Nerd Fonts para play/pausa
     static constexpr const char* ICON_PLAY = " \uf04b";
     static constexpr const char* ICON_PAUSE = " \uf04c";
     static constexpr const char* ICON_LOGO = "\uf2f2"; // Icono de reloj más común
@@ -43,80 +51,138 @@ private:
         snprintf(buffer, buffer_size, "%02d:%02d:%02d", hours, minutes, seconds);
     }
 
+    void playPause() {
+        if (!is_running) {
+            // Iniciar
+            start_time = std::chrono::steady_clock::now();
+            is_running = true;
+            is_paused = false;
+            accumulated_pause_time = 0;
+        } else if (is_paused) {
+            // Reanudar
+            auto now = std::chrono::steady_clock::now();
+            accumulated_pause_time += std::chrono::duration_cast<std::chrono::milliseconds>(now - pause_time).count();
+            is_paused = false;
+        } else {
+            // Pausar
+            pause_time = std::chrono::steady_clock::now();
+            is_paused = true;
+        }
+
+        update();
+        if (renderFunction) renderFunction();
+    }
+
+    void reset() {
+        // Resetear stopwatch (siempre permitido)
+        is_running = false;
+        is_paused = false;
+        accumulated_pause_time = 0;
+
+        update();
+        if (renderFunction) renderFunction();
+    }
+
+    void toggleDetails() {
+        show_details = !show_details;
+
+        update();
+        if (renderFunction) renderFunction();
+    }
+
+    void setupAllElements() {
+        // Configurar moduleName para todos los elementos
+        baseElement.moduleName = name;
+        timeElement.moduleName = name;
+        
+        // Almacenar referencias
+        allElements = {&baseElement, &timeElement};
+        
+        // Agregar TODOS los elementos al vector (nunca se modifica)
+        elements.push_back(&baseElement);
+        elements.push_back(&timeElement);
+    }
+
+    void configureAllEvents() {
+        // Configurar clicks en TODOS los elementos
+        for (auto* elem : allElements) {
+            elem->setEvent(BarElement::CLICK_LEFT, [this]() { playPause(); });
+            elem->setEvent(BarElement::CLICK_MIDDLE, [this]() { reset(); });
+            elem->setEvent(BarElement::CLICK_RIGHT, [this]() { toggleDetails(); });
+        }
+        
+        // Stopwatch no tiene eventos de scroll (no ajusta tiempo)
+    }
+
+    void applyColors() {
+        Color defaultColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
+        Color orangeColor = Color::parse_color("#FFA500", NULL, Color(255, 165, 0, 255));
+        Color greenColor = Color::parse_color("#90EE90", NULL, Color(144, 238, 144, 255));
+        
+        // Aplicar colores a todos los elementos según estado
+        for (auto* elem : allElements) {
+            if (!is_running) {
+                elem->foregroundColor = defaultColor;
+            } else if (is_paused) {
+                elem->foregroundColor = orangeColor;
+            } else {
+                elem->foregroundColor = greenColor;
+            }
+        }
+    }
+
 public:
-    StopwatchModule() : Module("stopwatch") {
-        setSecondsPerUpdate(1);
-        setUpdatePerIteration(true);
+    StopwatchModule() : Module("stopwatch", false, 1) {
+        setupAllElements();
+        configureAllEvents();
+    }
+
+    ~StopwatchModule() {
+        // Los elementos son estáticos, no necesitan limpieza manual
+        allElements.clear();
     }
 
     void update() override {
-        const char* action_icon = "";
-        static char color_tag[32];
-
-        if (!is_running) {
-            // Reset estado: solo logo, sin color especial
-            sprintf(color_tag, "%%{F%s}", Module::COLOR_FG);
-        } else if (is_paused) {
-            // Pausado: logo + play con color naranja
-            sprintf(color_tag, "%%{F#FFA500}");
-            action_icon = ICON_PLAY;
-        } else {
-            // Reproduciendo: logo + pause con color verde
-            sprintf(color_tag, "%%{F#90EE90}");
-            action_icon = ICON_PAUSE;
-        }
-
-        if (!show_details) {
-            // Modo compacto: siempre muestra logo (con color de estado)
-            buffer = std::string("%{A2:stopwatch_reset:}%{A3:stopwatch_toggle:}") +
-                    color_tag + ICON_LOGO + "%{F-}%{A}%{A}";
-            return;
-        }
+        applyColors();
 
         long long elapsed = get_elapsed_ms();
         char time_buffer[64];
         format_time(time_buffer, sizeof(time_buffer), elapsed);
 
-        char temp_buffer[256];
-        snprintf(temp_buffer, sizeof(temp_buffer),
-                "%%{A1:stopwatch_play_pause:}%%{A2:stopwatch_reset:}%%{A3:stopwatch_toggle:}%s%s%s %s%%{F-}%%{A}%%{A}%%{A}",
-                color_tag, ICON_LOGO, action_icon, time_buffer);
+        // Logo (siempre visible)
+        baseElement.contentLen = snprintf(
+            baseElement.content,
+            CONTENT_MAX_LEN,
+            "%s",
+            ICON_LOGO
+        );
+        
+        // El logo siempre necesita actualizarse por cambios de color
+        baseElement.dirtyContent = true;
 
-        buffer = temp_buffer;
-    }
-
-    void event(const char* eventValue) override {
-        if (strstr(eventValue, "stopwatch_reset")) {
-            // Resetear stopwatch (click central)
-            is_running = false;
-            is_paused = false;
-            accumulated_pause_time = 0;
-
-        } else if (strstr(eventValue, "stopwatch_play_pause")) {
-            // Pausar/Reanudar (click izquierdo)
-            if (!is_running) {
-                // Iniciar
-                start_time = std::chrono::steady_clock::now();
-                is_running = true;
-                is_paused = false;
-                accumulated_pause_time = 0;
-            } else if (is_paused) {
-                // Reanudar
-                auto now = std::chrono::steady_clock::now();
-                accumulated_pause_time += std::chrono::duration_cast<std::chrono::milliseconds>(now - pause_time).count();
-                is_paused = false;
-            } else {
-                // Pausar
-                pause_time = std::chrono::steady_clock::now();
-                is_paused = true;
+        // Elemento de tiempo (solo visible en modo detallado)
+        if (show_details) {
+            const char* action_icon = "";
+            if (is_running) {
+                action_icon = is_paused ? ICON_PLAY : ICON_PAUSE;
             }
-
-        } else if (strstr(eventValue, "stopwatch_toggle")) {
-            // Mostrar/ocultar detalles (click derecho)
-            show_details = !show_details;
+            
+            timeElement.contentLen = snprintf(
+                timeElement.content,
+                CONTENT_MAX_LEN,
+                "%s %s",
+                action_icon,
+                time_buffer
+            );
+            timeElement.dirtyContent = true;
+        } else {
+            // Ocultar elemento de tiempo en modo compacto
+            timeElement.contentLen = snprintf(timeElement.content, CONTENT_MAX_LEN, "");
+            timeElement.dirtyContent = true;  // Forzar actualización para ocultar
         }
 
-        markForUpdate();
+        // Actualizar timestamp - CRÍTICO
+        lastUpdate = time(nullptr);
     }
 };
 

@@ -8,6 +8,8 @@
 #include <pulse/error.h>
 #include <vector>
 #include <string>
+#include <algorithm>
+#include <cmath>
 
 #include "module.h"
 
@@ -21,9 +23,31 @@ struct SinkInfo {
 
 class AudioModule : public Module {
 public:
-    AudioModule() : Module("audio") {
-        setUpdatePerIteration(false);
-        setSecondsPerUpdate(5);
+    AudioModule() : Module("audio", false, 5) {
+        // Configurar elemento base
+        baseElement.moduleName = name;
+
+        // Click izquierdo: Toggle Mute
+        baseElement.setEvent(BarElement::CLICK_LEFT, [this]() {
+            toggle_mute();
+        });
+
+        // Click medio: Next Device (Cycle)
+        baseElement.setEvent(BarElement::CLICK_RIGHT, [this]() {
+            cycle_sinks();
+        });
+
+        // Scroll up: Volume +
+        baseElement.setEvent(BarElement::SCROLL_UP, [this]() {
+            adjust_volume(2);
+        });
+
+        // Scroll down: Volume -
+        baseElement.setEvent(BarElement::SCROLL_DOWN, [this]() {
+            adjust_volume(-2);
+        });
+
+        elements.push_back(&baseElement);
     }
 
     ~AudioModule() {
@@ -36,16 +60,7 @@ public:
 
     void update() override {
         refresh_cache();
-        generate_buffer();
-    }
-
-    void event(const char* eventValue) override {
-        if (strncmp(eventValue, "vol_", 4) == 0) {
-            int button = atoi(eventValue + 4);
-            handle_audio_click(button);
-            refresh_cache();
-            generate_buffer();
-        }
+        update_element();
     }
 
 private:
@@ -54,6 +69,7 @@ private:
     SinkInfo current_sink;
     std::vector<SinkInfo> all_sinks;
     std::string default_sink_name;
+    BarElement baseElement;
 
     // --- Lógica de PulseAudio ---
 
@@ -119,63 +135,86 @@ private:
         pa_operation_unref(o);
     }
 
-    void handle_audio_click(int button) {
-        pa_operation* o = nullptr;
-        pa_cvolume cv;
-
-        switch(button) {
-            case 1: // Toggle Mute
-                o = pa_context_set_sink_mute_by_index(context, current_sink.index, !current_sink.is_muted, NULL, NULL);
-                break;
-            case 3: // Next Device (Cycle)
-                cycle_sinks();
-                break;
-            case 4: // Vol +
-                pa_cvolume_set(&cv, 1, (pa_volume_t)(std::min((double)PA_VOLUME_MAX, (double)PA_VOLUME_NORM * (current_sink.volume + 2) / 100)));
-                o = pa_context_set_sink_volume_by_index(context, current_sink.index, &cv, NULL, NULL);
-                break;
-            case 5: // Vol -
-                pa_cvolume_set(&cv, 1, (pa_volume_t)(std::max(0.0, (double)PA_VOLUME_NORM * (current_sink.volume - 2) / 100)));
-                o = pa_context_set_sink_volume_by_index(context, current_sink.index, &cv, NULL, NULL);
-                break;
-        }
-
+    void toggle_mute() {
+        pa_operation* o = pa_context_set_sink_mute_by_index(context, current_sink.index, !current_sink.is_muted, NULL, NULL);
         if (o) {
             while (pa_operation_get_state(o) == PA_OPERATION_RUNNING) pa_mainloop_iterate(mainloop, 1, NULL);
             pa_operation_unref(o);
         }
+        refresh_cache();
+        update_element();
+        if (renderFunction) {
+            renderFunction();
+        }
     }
 
-    //TODO: ver la manera en que se actualice en tiempo real el switch de un dispositivo a otro
     void cycle_sinks() {
         if (all_sinks.size() <= 1) return;
+
         for (size_t i = 0; i < all_sinks.size(); ++i) {
             if (all_sinks[i].name == current_sink.name) {
                 int next = (i + 1) % all_sinks.size();
                 pa_operation* o = pa_context_set_default_sink(context, all_sinks[next].name.c_str(), NULL, NULL);
-                while (pa_operation_get_state(o) == PA_OPERATION_RUNNING) pa_mainloop_iterate(mainloop, 1, NULL);
-                pa_operation_unref(o);
-                this->markForUpdate();
+                if (o) {
+                    while (pa_operation_get_state(o) == PA_OPERATION_RUNNING) pa_mainloop_iterate(mainloop, 1, NULL);
+                    pa_operation_unref(o);
+                }
                 break;
             }
         }
+        refresh_cache();
+        update_element();
+        if (renderFunction) {
+            renderFunction();
+        }
     }
 
-    void generate_buffer() {
-        char res[1024];
+    void adjust_volume(int delta) {
+        pa_operation* o = nullptr;
+        pa_cvolume cv;
+
+        int new_volume = std::max(0, current_sink.volume + delta);
+        pa_cvolume_set(&cv, 1, (pa_volume_t)((double)PA_VOLUME_NORM * new_volume / 100));
+
+        o = pa_context_set_sink_volume_by_index(context, current_sink.index, &cv, NULL, NULL);
+        if (o) {
+            while (pa_operation_get_state(o) == PA_OPERATION_RUNNING) pa_mainloop_iterate(mainloop, 1, NULL);
+            pa_operation_unref(o);
+        }
+        refresh_cache();
+        update_element();
+        if (renderFunction) {
+            renderFunction();
+        }
+    }
+
+    void update_element() {
         const char* icon = get_icon(current_sink.name);
 
-        sprintf(res, "%%{A1:vol_1:}%%{A3:vol_3:}%%{A4:vol_4:}%%{A5:vol_5:}%%{F%s}%s %d%%%%{F-}%%{A}%%{A}%%{A}%%{A}",
-                (current_sink.is_muted ? Module::COLOR_MUTED : Module::COLOR_FG),
-                icon, current_sink.volume);
-        buffer = res;
+        // Actualizar contenido del elemento
+        baseElement.contentLen = snprintf(
+            baseElement.content,
+            CONTENT_MAX_LEN,
+            "%s %d%%",
+            icon,
+            current_sink.volume
+        );
+        baseElement.content[baseElement.contentLen] = '\0';
+        baseElement.dirtyContent = true;
+
+        // Actualizar color según estado de mute
+        if (current_sink.is_muted) {
+            baseElement.foregroundColor = Color::parse_color("#FF6B6B", NULL, Color(255, 107, 107, 255)); // Rojo
+        } else {
+            baseElement.foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255)); // Morado
+        }
     }
 
     const char* get_icon(const std::string& name) {
         if (name.find("bluez") != std::string::npos) return u8"\U000f02cb";  // Headset
-        if (name.find("alsa") != std::string::npos) return "\ue638";   // Speaker
+        if (name.find("alsa") != std::string::npos) return "\ue638";       // Speaker
         return "\xef\x90\x9c"; // Generic
     }
 };
 
-#endif
+#endif // AUDIO_H

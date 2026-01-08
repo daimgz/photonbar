@@ -11,60 +11,13 @@
 #include <json-c/json.h>
 #include "module.h"
 #include <fmt/format.h>
+#include "../barElement.h"
 
 class WeatherModule : public Module {
-  public:
-    WeatherModule():
-      Module("weather"),
-      lat(-34.4476799),    // Del Viso, Pilar, Buenos Aires
-      lon(-58.8052387),    // Del Viso, Pilar, Buenos Aires
-      last_api_call(0),
-      temperature(0.0),
-      feels_like(0.0),
-      humidity(0),
-      wind_speed(0.0),
-      weather_code(0),
-      is_night(false),
-      show_details(false)
-    {
-      // Configurar actualización cada 10 minutos (600 segundos)
-      setSecondsPerUpdate(600);
-      update_per_iteration = false; // No actualizar en cada ciclo
-
-      // Inicializar curl
-      curl_global_init(CURL_GLOBAL_DEFAULT);
-    }
-
-    ~WeatherModule() {
-      curl_global_cleanup();
-    }
-
-    bool initialize() override {
-      // Realizar primera llamada a la API
-      return fetchWeatherData();
-    }
-
-    void update() override {
-      time_t now = time(nullptr);
-
-      // Solo llamar a la API si han pasado 10 minutos
-      if ((now - last_api_call) >= 600) {
-        if (fetchWeatherData()) {
-          last_api_call = now;
-        }
-      }
-
-      generateBuffer();
-    }
-
-    void event(const char* eventValue) override {
-      if (strstr(eventValue, "wt_click")) {
-        show_details = !show_details;
-        markForUpdate();
-      }
-    }
-
   private:
+    // Elementos de la UI
+    BarElement baseElement;
+
     // Configuración de ubicación
     const double lat;
     const double lon;
@@ -92,6 +45,65 @@ class WeatherModule : public Module {
       return size * nmemb;
     }
 
+  public:
+    WeatherModule():
+      Module("weather", false, 600),  // No auto-update, cada 600 segundos (10 min)
+      lat(-34.4476799),    // Del Viso, Pilar, Buenos Aires
+      lon(-58.8052387),    // Del Viso, Pilar, Buenos Aires
+      last_api_call(0),
+      temperature(0.0),
+      feels_like(0.0),
+      humidity(0),
+      wind_speed(0.0),
+      weather_code(0),
+      is_night(false),
+      show_details(false)
+    {
+      // Inicializar curl
+      curl_global_init(CURL_GLOBAL_DEFAULT);
+
+      // Configurar elemento base
+      baseElement.moduleName = name;
+
+      // Click izquierdo: toggle detalles
+      baseElement.setEvent(BarElement::CLICK_LEFT, [this]() {
+        show_details = !show_details;
+        update();
+        if (renderFunction) {
+          renderFunction();
+        }
+      });
+
+      // Color base del texto
+      baseElement.foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
+
+      elements.push_back(&baseElement);
+    }
+
+    ~WeatherModule() {
+      curl_global_cleanup();
+    }
+
+    bool initialize() override {
+      // Realizar primera llamada a la API
+      return fetchWeatherData();
+    }
+
+    void update() override {
+      time_t now = time(nullptr);
+
+      // Solo llamar a la API si han pasado 10 minutos
+      if ((now - last_api_call) >= 600) {
+        if (fetchWeatherData()) {
+          last_api_call = now;
+        }
+      }
+
+      generateBuffer();
+      lastUpdate = time(nullptr);
+    }
+
+  private:
     bool fetchWeatherData() {
       CURL *curl;
       CURLcode res;
@@ -233,19 +245,39 @@ class WeatherModule : public Module {
     }
 
     void generateBuffer() {
-      buffer = "%{A1:wt_click:}";
+      std::string content;
 
       // Icono del clima y temperatura principal
-      buffer += fmt::format("{} {:.1f}°C", getWeatherDescription(), temperature);
+      content += fmt::format("{} {:.1f}°C", getWeatherDescription(), temperature);
 
       if (show_details) {
-        buffer += fmt::format(
+        content += fmt::format(
           " | ST: {:.1f}°C | H: {}% | V: {:.1f}km/h",
           feels_like, humidity, wind_speed
         );
       }
 
-      buffer += "%{A}";
+      // Copiar al buffer del elemento
+      baseElement.contentLen = snprintf(
+        baseElement.content,
+        CONTENT_MAX_LEN,
+        "%s",
+        content.c_str()
+      );
+
+      baseElement.dirtyContent = true;
+
+      // Cambiar color según estado
+      if (temperature > 30) {
+        // Muy caliente - rojo
+        baseElement.foregroundColor = Color::parse_color("#FF6B6B", NULL, Color(255, 107, 107, 255));
+      } else if (temperature < 5) {
+        // Muy frío - azul
+        baseElement.foregroundColor = Color::parse_color("#6BB6FF", NULL, Color(107, 182, 255, 255));
+      } else {
+        // Normal - color por defecto
+        baseElement.foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
+      }
     }
 };
 
