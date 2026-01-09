@@ -1,71 +1,157 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
-#include <stdio.h>
-#include <string.h>
-#include <fstream>
-#include <iostream>
-#include <vector>
+#include <cstdio>
+#include <cstring>
+#include <ctime>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <poll.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+
 #include "module.h"
 
 class PingModule : public Module {
 private:
     bool showDetails = true;
     const char* host = "8.8.8.8";
+    int port = 443;
 
-    // Iconos en formato de bytes hexadecimales (UTF-8 seguro)
-    static constexpr const char* ICON_NET   = "\uef09"; // 󪩚 (Pulso/Ping)
-    static constexpr const char* ICON_DOWN  = "\uea9d"; //  (Flecha abajo)
-    static constexpr const char* ICON_UP    = "\ueaa0"; //  (Flecha arriba)
+    static constexpr const char* ICON_NET  = "\uef09";
+    static constexpr const char* ICON_UP   = "\ueaa0";
+    static constexpr const char* ICON_DOWN = "\uea9d";
 
     unsigned long long lastSent = 0;
     unsigned long long lastRecv = 0;
+    double lastUp = 0.0;
+    double lastDown = 0.0;
+
+    float cachedLatency = -1.0f;
+    time_t lastLatencyCheck = 0;
 
     BarElement baseElement;
 
-    float getPing() {
-        char cmd[128];
-        snprintf(cmd, sizeof(cmd), "ping -c 1 -W 1 %s | grep 'time=' | awk -F'time=' '{print $2}' | awk '{print $1}'", host);
+    /* ================== /proc/net/dev ================== */
+    int netDevFd = -1;
 
-        FILE* pipe = popen(cmd, "r");
-        if (!pipe) return -1.0f;
-
-        char buffer_cmd[32];
-        float ping_time = -1.0f;
-        if (fgets(buffer_cmd, sizeof(buffer_cmd), pipe) != NULL) {
-            ping_time = atof(buffer_cmd);
+    static inline unsigned long long fast_atoull(char*& p) {
+        unsigned long long val = 0;
+        while (*p && (*p < '0' || *p > '9')) ++p;
+        while (*p >= '0' && *p <= '9') {
+            val = val * 10 + (*p - '0');
+            ++p;
         }
-        pclose(pipe);
-        return ping_time;
+        return val;
     }
 
-    void getNetworkIo(unsigned long long &sent, unsigned long long &recv) {
-        std::ifstream file("/proc/net/dev");
-        std::string line;
-        sent = 0; recv = 0;
-        std::getline(file, line);
-        std::getline(file, line);
+    inline void openNetDev() {
+        if (netDevFd >= 0) return;
+        netDevFd = open("/proc/net/dev", O_RDONLY | O_CLOEXEC);
+    }
 
-        while (std::getline(file, line)) {
-            if (line.find("lo:") != std::string::npos) continue;
-            unsigned long long r_bytes, t_bytes, tmp;
-            char iface[32];
-            sscanf(line.c_str(), " %[^:]: %llu %llu %llu %llu %llu %llu %llu %llu %llu",
-                   iface, &r_bytes, &tmp, &tmp, &tmp, &tmp, &tmp, &tmp, &tmp, &t_bytes);
-            recv += r_bytes;
-            sent += t_bytes;
+    inline void getNetworkIo(unsigned long long& sent, unsigned long long& recv) {
+        if (netDevFd < 0) return;
+        if (lseek(netDevFd, 0, SEEK_SET) < 0) return;
+
+        char buf[4096]; // seguro para muchas interfaces
+        ssize_t len = read(netDevFd, buf, sizeof(buf) - 1);
+        if (len <= 0) return;
+        buf[len] = '\0';
+
+        sent = recv = 0;
+        char* p = buf;
+
+        // Saltar headers rápidamente
+        int nl = 0;
+        while (nl < 2 && *p) {
+            if (*p++ == '\n') nl++;
         }
+
+        while (*p) {
+            while (*p == ' ') ++p;
+            if (!*p) break;
+
+            // Filtro seguro de loopback
+            if (p[0] == 'l' && p[1] == 'o' && p[2] == ':') {
+                while (*p && *p != '\n') ++p;
+                if (*p) ++p;
+                continue;
+            }
+
+            // Saltar nombre de interfaz
+            while (*p && *p != ':') ++p;
+            if (*p == ':') ++p;
+
+            // Parsing lineal de columnas
+            recv += fast_atoull(p);
+            for (int i = 0; i < 7; ++i) fast_atoull(p);
+            sent += fast_atoull(p);
+
+            // Ir al final de la línea
+            while (*p && *p != '\n') ++p;
+            if (*p) ++p;
+        }
+    }
+
+    // TCP no bloqueante + CLOEXEC
+    inline float getLatencyMs() {
+        int sock = socket(
+            AF_INET,
+            SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC,
+            0
+        );
+        if (sock < 0) return -1.0f;
+
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(port);
+        inet_pton(AF_INET, host, &addr.sin_addr);
+
+        timespec start{}, end{};
+        clock_gettime(CLOCK_MONOTONIC_COARSE, &start);
+
+        int r = connect(sock, (sockaddr*)&addr, sizeof(addr));
+        if (r < 0 && errno != EINPROGRESS) {
+            close(sock);
+            return -1.0f;
+        }
+
+        pollfd pfd{};
+        pfd.fd = sock;
+        pfd.events = POLLOUT;
+
+        if (poll(&pfd, 1, 1000) <= 0) {
+            close(sock);
+            return -1.0f;
+        }
+
+        int err = 0;
+        socklen_t len = sizeof(err);
+        getsockopt(sock, SOL_SOCKET, SO_ERROR, &err, &len);
+        if (err) {
+            close(sock);
+            return -1.0f;
+        }
+
+        clock_gettime(CLOCK_MONOTONIC_COARSE, &end);
+        close(sock);
+
+        return (end.tv_sec - start.tv_sec) * 1000.0f +
+               (end.tv_nsec - start.tv_nsec) / 1e6f;
     }
 
 public:
     PingModule() : Module("network", false, 1) {
+        openNetDev();
         getNetworkIo(lastSent, lastRecv);
 
         baseElement.moduleName = name;
         baseElement.setEvent(
             BarElement::CLICK_LEFT,
-            [this](){
-                this->showDetails = !this->showDetails;
+            [this]() {
+                showDetails = !showDetails;
                 update();
                 renderFunction();
             }
@@ -74,19 +160,35 @@ public:
         elements.push_back(&baseElement);
     }
 
-    void update() {
-        unsigned long long current_sent, current_recv;
-        getNetworkIo(current_sent, current_recv);
-        float ping = getPing();
+    ~PingModule() {
+        if (netDevFd >= 0)
+            close(netDevFd);
+    }
 
-        double up_speed = (double)(current_sent - lastSent) / 1024.0;
-        double down_speed = (double)(current_recv - lastRecv) / 1024.0;
+    void update() override {
+        unsigned long long curSent, curRecv;
+        getNetworkIo(curSent, curRecv);
 
-        if (up_speed < 0) up_speed = 0;
-        if (down_speed < 0) down_speed = 0;
+        double up   = (double)(curSent - lastSent) * 0.0009765625;   // KB
+        double down = (double)(curRecv - lastRecv) * 0.0009765625;   // KB
 
-        lastSent = current_sent;
-        lastRecv = current_recv;
+        if (up < 0) up = 0;
+        if (down < 0) down = 0;
+
+        // Suavizado
+        up   = up * 0.7 + lastUp * 0.3;
+        down = down * 0.7 + lastDown * 0.3;
+
+        lastUp = up;
+        lastDown = down;
+        lastSent = curSent;
+        lastRecv = curRecv;
+
+        time_t now = time(nullptr);
+        if (now != lastLatencyCheck) {
+            cachedLatency = getLatencyMs();
+            lastLatencyCheck = now;
+        }
 
         if (!showDetails) {
             baseElement.contentLen = snprintf(
@@ -95,29 +197,29 @@ public:
                 "%s",
                 ICON_NET
             );
-            baseElement.dirtyContent = true;
-            lastUpdate = time(nullptr);
-            return;
-        }
-
-        if (ping >= 0) {
+        } else if (cachedLatency >= 0.0f) {
             baseElement.contentLen = snprintf(
                 baseElement.content,
                 CONTENT_MAX_LEN,
                 "%s %.1fms %s%.1fK %s%.1fK",
-                ICON_NET, (double)ping, ICON_UP, up_speed, ICON_DOWN, down_speed
+                ICON_NET,
+                cachedLatency,
+                ICON_UP, up,
+                ICON_DOWN, down
             );
         } else {
             baseElement.contentLen = snprintf(
                 baseElement.content,
                 CONTENT_MAX_LEN,
                 "%s Off %s%.1fK %s%.1fK",
-                ICON_NET, ICON_UP, up_speed, ICON_DOWN, down_speed
+                ICON_NET,
+                ICON_UP, up,
+                ICON_DOWN, down
             );
         }
+
         baseElement.dirtyContent = true;
-        lastUpdate = time(nullptr);
-        std::cout << "the ping was updated :D" << std::endl;
+        lastUpdate = now;
     }
 };
 
