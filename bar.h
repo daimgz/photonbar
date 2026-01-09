@@ -104,6 +104,36 @@ struct UTF8Result {
 
 class Bar{
 
+struct CachedSeparator {
+    uint32_t ucs[2];       // los dos caracteres Unicode
+    font_t* fonts[2];      // sus fuentes seleccionadas
+    int widths[2];          // ancho de cada carácter
+    int totalWidth;         // ancho total del separador
+};
+CachedSeparator separator;
+void initSeparator() {
+    const char* sep_string = " ▏";
+    const char* p = sep_string;
+
+    int i = 0;
+    separator.totalWidth = 0;
+
+    while (*p != '\0' && i < 2) {
+        UTF8Result result = decodeUtf8Char(p);
+        font_t* f = selectDrawableFont(result.ucs);
+        if (!f) result.ucs = '?';
+
+        int w = getUtf8CharWidth(result.ucs, f);
+
+        separator.ucs[i] = result.ucs;
+        separator.fonts[i] = f;
+        separator.widths[i] = w;
+        separator.totalWidth += w;
+
+        p += result.bytesConsumed;
+        i++;
+    }
+}
 
 public:
 wchar_t xftChar[MAX_WIDTHS];
@@ -236,6 +266,7 @@ inline int getUtf8CharWidth(uint32_t ucs, font_t* font) {
         fprintf(stderr, "[lemonbar] lemonbar_init_lib: init complete\n");
 
         //setBackground(_backgroundColor);
+        initSeparator();
     }
 
 void setClickHandler(std::function<void(const char *cmd)> cb) {
@@ -245,7 +276,7 @@ void setClickHandler(std::function<void(const char *cmd)> cb) {
 void updateGc(void) {
     // Only update if colors are dirty
     if (!colorsDirty) return;
-    
+
     xcb_change_gc(c, gc[GC_DRAW], XCB_GC_FOREGROUND, (const uint32_t []){ foregroundColor.v });
     xcb_change_gc(c, gc[GC_CLEAR], XCB_GC_FOREGROUND, (const uint32_t []){ backgroundColor.v });
     xcb_change_gc(c, gc[GC_ATTR], XCB_GC_FOREGROUND, (const uint32_t []){ underlineColor.v });
@@ -256,7 +287,7 @@ void updateGc(void) {
     if (!XftColorAllocName (dpy, visualPtr, colormap, color, &selFg)) {
         fprintf(stderr, "Couldn't allocate xft font color '%s'\n", color);
     }
-    
+
     // Mark colors as clean
     colorsDirty = false;
 }
@@ -265,43 +296,43 @@ void markColorsDirty(void) {
     colorsDirty = true;
 }
 
-void fillGradient(xcb_drawable_t d, int x, int y, int width, int height, Color start, Color stop) {
-    float i;
-    const int K = 25; // The number of steps
+//void fillGradient(xcb_drawable_t d, int x, int y, int width, int height, Color start, Color stop) {
+    //float i;
+    //const int K = 25; // The number of steps
 
-    for (i = 0.; i < 1.; i += (1. / K)) {
-        // Perform the linear interpolation magic
-        unsigned int rr = i * stop.r + (1. - i) * start.r;
-        unsigned int gg = i * stop.g + (1. - i) * start.g;
-        unsigned int bb = i * stop.b + (1. - i) * start.b;
+    //for (i = 0.; i < 1.; i += (1. / K)) {
+        //// Perform the linear interpolation magic
+        //unsigned int rr = i * stop.r + (1. - i) * start.r;
+        //unsigned int gg = i * stop.g + (1. - i) * start.g;
+        //unsigned int bb = i * stop.b + (1. - i) * start.b;
 
-        // The alpha is ignored here
-        Color step = {
-            static_cast<uint8_t>(bb),
-            static_cast<uint8_t>(gg),
-            static_cast<uint8_t>(rr),
-            255,
-        };
+        //// The alpha is ignored here
+        //Color step = {
+            //static_cast<uint8_t>(bb),
+            //static_cast<uint8_t>(gg),
+            //static_cast<uint8_t>(rr),
+            //255,
+        //};
 
-        xcb_change_gc(c, gc[GC_DRAW], XCB_GC_FOREGROUND, (const uint32_t []){ step.v });
-        xcb_poly_fill_rectangle(
-            c,
-            d,
-            gc[GC_DRAW],
-            1,
-            (const xcb_rectangle_t []){
-                {
-                    static_cast<int16_t>(x),
-                    static_cast<int16_t>(i * bh),
-                    static_cast<uint16_t>(width),
-                    static_cast<uint16_t>(bh / K + 1)
-                }
-            }
-        );
-    }
+        //xcb_change_gc(c, gc[GC_DRAW], XCB_GC_FOREGROUND, (const uint32_t []){ step.v });
+        //xcb_poly_fill_rectangle(
+            //c,
+            //d,
+            //gc[GC_DRAW],
+            //1,
+            //(const xcb_rectangle_t []){
+                //{
+                    //static_cast<int16_t>(x),
+                    //static_cast<int16_t>(i * bh),
+                    //static_cast<uint16_t>(width),
+                    //static_cast<uint16_t>(bh / K + 1)
+                //}
+            //}
+        //);
+    //}
 
-    xcb_change_gc(c, gc[GC_DRAW], XCB_GC_FOREGROUND, (const uint32_t []){ foregroundColor.v });
-}
+    //xcb_change_gc(c, gc[GC_DRAW], XCB_GC_FOREGROUND, (const uint32_t []){ foregroundColor.v });
+//}
 
 void fillRect(xcb_drawable_t d, xcb_gcontext_t _gc, int x, int y, int width, int height) {
         xcb_poly_fill_rectangle(c, d, _gc, 1, (const xcb_rectangle_t []){ { x, y, width, height } });
@@ -530,70 +561,6 @@ selectDrawableFont (const uint32_t c)
 }
 
 
-
-//void parseModules ()
-//{
-    ////std::cout << std::endl << std::endl << "[BarManager] parseBarElement: received '" << elements << "'" << std::endl << std::endl <<std::endl;
-    //// === VARIABLES LOCALES DE ESTADO ===
-    //font_t *curFont;        // Fuente actual seleccionada para dibujar
-    //monitor_t *cur_mon;      // Monitor actual donde se está dibujando
-    //int pos_x, align; // Posición X actual, alineación, botón del mouse
-    ////char *block_end, *ep; // Punteros: actual al texto, fin del bloque, fin de parámetro
-    //Color tmp;               // Variable temporal para intercambiar colores
-
-    //// === SISTEMA DE POSICIONAMIENTO ACUMULATIVO POR GRUPO ===
-    //struct GroupPositions {
-        //int left_pos = 0;
-        //int center_total_width = 0;  // Ancho total de elementos centrados
-        //int right_pos = 0;
-        //std::vector<BarElement*> center_elements;  // Elementos centrados para ajuste final
-    //} group_pos;
-
-    //// === INICIALIZACIÓN DE ESTADO DE DIBUJO ===
-    //pos_x = 0;              // Posición X inicial (comienza desde la izquierda)
-    //align = ALIGN_L;         // Alineación inicial: izquierda
-    //cur_mon = monhead;      // Comenzar con el primer monitor
-
-    //// === REINICIALIZACIÓN DEL STACK DE ÁREAS CLICKEABLES ===
-    //// Reinicia el contador de áreas para limpiar áreas anteriores
-    ////area_stack.at = 0;
-
-    //// === LIMPIEZA DE TODOS LOS MONITORES ===
-    //// Limpia el pixmap de cada monitor con el color de fondo
-    //for (monitor_t *m = monhead; m != NULL; m = m->next)
-        //fillRect(m->pixmap, gc[GC_CLEAR], 0, 0, m->width, bh);
-
-    //// === CREACIÓN DEL DRAWABLE XFT ===memset(ptr, '\0', sizeof(data));
-    //// Xft drawable permite dibujar texto con fuentes TrueType/OpenType
-    //if (!(xftDraw = XftDrawCreate (dpy, cur_mon->pixmap, visualPtr , colormap))) {
-        //fprintf(stderr, "Couldn't create xft drawable\n");
-    //}
-
-    ////area_t *a = nullptr;
-        ////std::cout << std::endl << std::endl << "estoy" << std::endl << std::endl << std::endl;
-    //// === BUCLE PRINCIPAL DE PARSEO ===
-    //// Procesa cada carácter o bloque de formato del texto
-    //for (Module* module : modules) {
-        //module->window = cur_mon->window;
-        //for (BarElement* element : module->getElements()) {
-            ////std::cout << std::endl << std::endl << "estoy" << element->content << " len " << element->contentLen << std::endl << std::endl << std::endl;
-            //element->beginX = pos_x;
-            //// === COMANDOS DE COLOR ===
-            ////case 'B': backgroundColor = Color::parse_color(p, &p, defaultBackgroundColor); updateGc(); break;
-            //if (element->backgroundColor != Color(0x00000000U))
-                //backgroundColor = element->backgroundColor;
-            ////case 'F': foregroundColor = Color::parse_color(p, &p, defaultForegroundColor); updateGc(); break;
-            //if (element->foregroundColor != Color(0x00000000U))
-                //foregroundColor = element->foregroundColor;
-            ////case 'U': underlineColor = Color::parse_color(p, &p, defaultUnderlineColor); updateGc(); break;
-            //if (element->underlineColor != Color(0x00000000U))
-                //underlineColor = element->underlineColor;
-
-            //updateGc();
-        //}
-    //}
-//}
-
     void
     fontLoad (const char *pattern)
     {
@@ -790,34 +757,23 @@ ret->charMax = font_info->max_byte1 << 8 | font_info->max_char_or_byte2;
     }
 
     int renderSeparatorAt(monitor_t* cur_mon, int current_x) {
-        // Usar colores por defecto para el separador
         backgroundColor = defaultBackgroundColor;
         foregroundColor = defaultForegroundColor;
         markColorsDirty();
         updateGc();
 
-        // Renderizar separador UTF-8
-        const char* sep_string = " ▏";
         int pos_x = current_x;
+        font_t* lastFont = nullptr;
 
-        const char* p = sep_string;
-        while (*p != '\0') {
-            UTF8Result result = decodeUtf8Char(p);
-
-            font_t *curFont = selectDrawableFont(result.ucs);
-            if (!curFont) result.ucs = '?';
-
-            if (curFont->ptr) {
-                xcb_change_gc(c, gc[GC_DRAW] , XCB_GC_FONT,
-                    (const uint32_t []) { curFont->ptr });
+        for (int i = 0; i < 2; i++) {
+            auto& chFont = separator.fonts[i];
+            if (chFont != lastFont) {
+                if (chFont->ptr)
+                    xcb_change_gc(c, gc[GC_DRAW], XCB_GC_FONT, (const uint32_t[]){chFont->ptr});
+                lastFont = chFont;
             }
-
-            drawChar(cur_mon, curFont, pos_x, ALIGN_L, result.ucs);
-
-            int char_width = getUtf8CharWidth(result.ucs, curFont);
-            pos_x += char_width;
-
-            p += result.bytesConsumed;
+            drawChar(cur_mon, chFont, pos_x, ALIGN_L, separator.ucs[i]);
+            pos_x += separator.widths[i];
         }
 
         return pos_x;
@@ -900,22 +856,22 @@ ret->charMax = font_info->max_byte1 << 8 | font_info->max_char_or_byte2;
     void renderElement(BarElement* element, monitor_t* cur_mon) {
         // Resetear completamente atributos al inicio de cada elemento
         attrs = 0;
-        
+
         // Aplicar colores para renderizado
         Color oldBgColor = backgroundColor;
         Color oldFgColor = foregroundColor;
         Color oldUlColor = underlineColor;
-        
+
         if (element->backgroundColor != Color(0x00000000U))
             backgroundColor = element->backgroundColor;
         else
             backgroundColor = defaultBackgroundColor;
-            
+
         if (element->foregroundColor != Color(0x00000000U))
             foregroundColor = element->foregroundColor;
         else
             foregroundColor = defaultForegroundColor;
-            
+
         // Usar propiedad underline del elemento para determinar si activar subrayado
         if (element->underline) {
             if (element->underlineColor != Color(0x00000000U))
@@ -926,10 +882,10 @@ ret->charMax = font_info->max_byte1 << 8 | font_info->max_char_or_byte2;
         } else {
             underlineColor = defaultUnderlineColor;
         }
-        
+
         // Solo marcar como dirty si los colores realmente cambiaron
-        if (oldBgColor.v != backgroundColor.v || 
-            oldFgColor.v != foregroundColor.v || 
+        if (oldBgColor.v != backgroundColor.v ||
+            oldFgColor.v != foregroundColor.v ||
             oldUlColor.v != underlineColor.v) {
             markColorsDirty();
             updateGc();
@@ -967,7 +923,7 @@ ret->charMax = font_info->max_byte1 << 8 | font_info->max_char_or_byte2;
             drawChar(cur_mon, curFont, pos_x, ALIGN_L, ucs);
             pos_x += element->ucsContentCharWidths[i];
         }
-        
+
 
     }
 
