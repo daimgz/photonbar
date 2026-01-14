@@ -12,6 +12,7 @@
 #include <cmath>
 
 #include "module.h"
+#include "../helper.h"
 
 // Estructura para almacenar info de los sinks (salidas)
 struct SinkInfo {
@@ -19,6 +20,8 @@ struct SinkInfo {
     uint32_t index;
     int volume;
     bool isMuted;
+    bool isBluetooth;
+    int batteryLevel; // -1 si no está disponible
 };
 
 class AudioModule : public Module {
@@ -107,6 +110,15 @@ private:
         s.isMuted = i->mute;
         s.volume = (int)pa_cvolume_avg(&(i->volume)) * 100 / PA_VOLUME_NORM;
 
+        // Detectar si es dispositivo Bluetooth
+        s.isBluetooth = (s.name.find("bluez") != std::string::npos);
+        s.batteryLevel = -1; // Valor por defecto si no se puede obtener
+
+        // Si es Bluetooth, intentar obtener nivel de batería
+        if (s.isBluetooth) {
+            s.batteryLevel = self->getBluetoothBatteryLevel(s.name);
+        }
+
         self->allSinks.push_back(s);
 
         // Si este es el sink por defecto, actualizar currentSink
@@ -188,17 +200,46 @@ private:
         }
     }
 
+    int getBluetoothBatteryLevel(const std::string& sinkName) {
+        // Extraer dirección MAC del nombre del sink si es posible
+        // Esto puede variar según la configuración de PulseAudio
+        std::string cmd = "upower -i $(upower -e | grep -E 'bluez|headset|audio' | head -1) 2>/dev/null | grep 'percentage' | grep -o '[0-9]*' || echo '-1'";
+
+        FILE* pipe = popen(cmd.c_str(), "r");
+        if (!pipe) return -1;
+
+        char buffer[16];
+        if (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+            pclose(pipe);
+            return atoi(buffer);
+        }
+
+        pclose(pipe);
+        return -1;
+    }
+
     void updateElement() {
         const char* icon = getIcon(currentSink.name);
 
         // Actualizar contenido del elemento
-        baseElement.contentLen = snprintf(
-            baseElement.content,
-            CONTENT_MAX_LEN,
-            "%s %d%%",
-            icon,
-            currentSink.volume
-        );
+        if (currentSink.isBluetooth && currentSink.batteryLevel >= 0) {
+            baseElement.contentLen = snprintf(
+                baseElement.content,
+                CONTENT_MAX_LEN,
+                "%s %d%% 🔋%s",
+                icon,
+                currentSink.volume,
+                Helper::getBatteryIcon(currentSink.batteryLevel)
+            );
+        } else {
+            baseElement.contentLen = snprintf(
+                baseElement.content,
+                CONTENT_MAX_LEN,
+                "%s %d%%",
+                icon,
+                currentSink.volume
+            );
+        }
         baseElement.content[baseElement.contentLen] = '\0';
         baseElement.dirtyContent = true;
 
