@@ -9,15 +9,19 @@ PULSE_LIBS = $(shell pkg-config --libs libpulse)
 # --- CAMBIO 5: Obtener flags de curl y json-c ---
 CURL_CFLAGS = $(shell pkg-config --cflags libcurl)
 CURL_LIBS = $(shell pkg-config --libs libcurl)
+
 JSON_CFLAGS = $(shell pkg-config --cflags json-c)
 JSON_LIBS = $(shell pkg-config --libs json-c)
 
+NOTIFY_CFLAGS = $(shell pkg-config --cflags libnotify)
+NOTIFY_LIBS = $(shell pkg-config --libs libnotify)
+
 CFLAGS += -Wall -std=c99 -Os -DVERSION="\"$(VERSION)\"" -I/usr/include/freetype2 -DLEMONBAR_BUILDING
 # --- CAMBIO 2: Añadido PULSE_CFLAGS a CXXFLAGS ---
-CXXFLAGS += -Wall -std=c++11 -Os -DVERSION="\"$(VERSION)\"" -I/usr/include/freetype2 -DLEMONBAR_BUILDING -D_DEFAULT_SOURCE $(PULSE_CFLAGS) $(CURL_CFLAGS) $(JSON_CFLAGS)
+CXXFLAGS += -Wall -std=c++11 -Os -DVERSION="\"$(VERSION)\"" -I/usr/include/freetype2 -DLEMONBAR_BUILDING -D_DEFAULT_SOURCE $(PULSE_CFLAGS) $(CURL_CFLAGS) $(JSON_CFLAGS) $(NOTIFY_CFLAGS)
 
 # --- CAMBIO 3: Añadido PULSE_LIBS a LDFLAGS ---
-LDFLAGS += -lxcb -lxcb-xinerama -lxcb-randr -lX11 -lX11-xcb -lXft -lfreetype -lz -lfontconfig -lfmt $(PULSE_LIBS) $(CURL_LIBS) $(JSON_LIBS)
+LDFLAGS += -lxcb -lxcb-xinerama -lxcb-randr -lX11 -lX11-xcb -lXft -lfreetype -lz -lfontconfig -lfmt $(PULSE_LIBS) $(CURL_LIBS) $(JSON_LIBS) $(NOTIFY_LIBS)
 
 # Configuración de debug
 CFDEBUG = -g3 -pedantic -Wall -Wunused-parameter -Wlong-long \
