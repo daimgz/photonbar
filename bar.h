@@ -80,9 +80,9 @@ enum {
 };
 
 enum { ALIGN_L = 0,
-       ALIGN_C,
-       ALIGN_R
-     };
+    ALIGN_C,
+    ALIGN_R
+};
 
 enum {
     GC_DRAW = 0,
@@ -104,85 +104,85 @@ struct UTF8Result {
 
 class Bar{
 
-struct CachedSeparator {
-    uint32_t ucs[2];       // los dos caracteres Unicode
-    font_t* fonts[2];      // sus fuentes seleccionadas
-    int widths[2];          // ancho de cada carácter
-    int totalWidth;         // ancho total del separador
-};
-CachedSeparator separator;
-void initSeparator() {
-    const char* sep_string = " ▏";
-    const char* p = sep_string;
+    struct CachedSeparator {
+        uint32_t ucs[2];       // los dos caracteres Unicode
+        font_t* fonts[2];      // sus fuentes seleccionadas
+        int widths[2];          // ancho de cada carácter
+        int totalWidth;         // ancho total del separador
+    };
+    CachedSeparator separator;
+    void initSeparator() {
+        const char* sep_string = " ▏";
+        const char* p = sep_string;
 
-    int i = 0;
-    separator.totalWidth = 0;
+        int i = 0;
+        separator.totalWidth = 0;
 
-    while (*p != '\0' && i < 2) {
-        UTF8Result result = decodeUtf8Char(p);
-        font_t* f = selectDrawableFont(result.ucs);
-        if (!f) result.ucs = '?';
+        while (*p != '\0' && i < 2) {
+            UTF8Result result = decodeUtf8Char(p);
+            font_t* f = selectDrawableFont(result.ucs);
+            if (!f) result.ucs = '?';
 
-        int w = getUtf8CharWidth(result.ucs, f);
+            int w = getUtf8CharWidth(result.ucs, f);
 
-        separator.ucs[i] = result.ucs;
-        separator.fonts[i] = f;
-        separator.widths[i] = w;
-        separator.totalWidth += w;
+            separator.ucs[i] = result.ucs;
+            separator.fonts[i] = f;
+            separator.widths[i] = w;
+            separator.totalWidth += w;
 
-        p += result.bytesConsumed;
-        i++;
+            p += result.bytesConsumed;
+            i++;
+        }
     }
-}
 
 public:
-wchar_t xftChar[MAX_WIDTHS];
-char    xftWidth[MAX_WIDTHS];
-XftColor selFg;
-XftDraw *xftDraw;
+    wchar_t xftChar[MAX_WIDTHS];
+    char    xftWidth[MAX_WIDTHS];
+    XftColor selFg;
+    XftDraw *xftDraw;
     Display *dpy;
-xcb_connection_t *c;
+    xcb_connection_t *c;
 
-xcb_screen_t *scr;
-int scrNbr = 0;
+    xcb_screen_t *scr;
+    int scrNbr = 0;
 
-xcb_gcontext_t gc[GC_MAX];
-xcb_visualid_t visual;
-Visual *visualPtr;
-xcb_colormap_t colormap;
-int visualDepth = 0; // depth of chosen visual (bits)
+    xcb_gcontext_t gc[GC_MAX];
+    xcb_visualid_t visual;
+    Visual *visualPtr;
+    xcb_colormap_t colormap;
+    int visualDepth = 0; // depth of chosen visual (bits)
 
 
-monitor_t *monhead, *montail;
-font_t *fontList[MAX_FONT_COUNT];
-int fontCount = 0;
-int fontIndex = -1;
-int offsetsY[MAX_FONT_COUNT];
-int offsetYCount = 0;
-int offsetYIndex = 0;
+    monitor_t *monhead, *montail;
+    font_t *fontList[MAX_FONT_COUNT];
+    int fontCount = 0;
+    int fontIndex = -1;
+    int offsetsY[MAX_FONT_COUNT];
+    int offsetYCount = 0;
+    int offsetYIndex = 0;
 
-uint32_t attrs = 0;
-bool dock = false; // hace que la barra siempre sea visible en la pantalla
-bool topbar = true;
-int bw = -1, bh = -1, bx = 0, by = 0;
-int bu = 1; // Underline height
-Color
+    uint32_t attrs = 0;
+    bool dock = false; // hace que la barra siempre sea visible en la pantalla
+    bool topbar = true;
+    int bw = -1, bh = -1, bx = 0, by = 0;
+    int bu = 1; // Underline height
+    Color
     foregroundColor,
     backgroundColor,
     underlineColor;
 
-Color
+    Color
     defaultForegroundColor,
     defaultBackgroundColor,
     defaultUnderlineColor;
 
-// Dirty state tracking for colors
-bool colorsDirty = true;
+    // Dirty state tracking for colors
+    bool colorsDirty = true;
 
-std::function<void(const char *cmd)> clickCb;
+    std::function<void(const char *cmd)> clickCb;
 
-/* Flag to prevent infinite EXPOSE loop */
-bool processingExpose = false;
+    /* Flag to prevent infinite EXPOSE loop */
+    bool processingExpose = false;
 
     const std::vector<Module*> leftModules;
     const std::vector<Module*> rightModules;
@@ -190,46 +190,46 @@ bool processingExpose = false;
 
 public:
 
-inline UTF8Result decodeUtf8Char(const char* input) {
-    const uint8_t *utf = (const uint8_t *)input;
-    UTF8Result result = {0, 1};
+    inline UTF8Result decodeUtf8Char(const char* input) {
+        const uint8_t *utf = (const uint8_t *)input;
+        UTF8Result result = {0, 1};
 
-    if (utf[0] < 0x80) {
-        // ASCII (1 byte)
-        result.ucs = utf[0];
-        result.bytesConsumed = 1;
-    } else if ((utf[0] & 0xe0) == 0xc0) {
-        // UTF-8 de 2 bytes
-        result.ucs = (utf[0] & 0x1f) << 6 | (utf[1] & 0x3f);
-        result.bytesConsumed = 2;
-    } else if ((utf[0] & 0xf0) == 0xe0) {
-        // UTF-8 de 3 bytes
-        result.ucs = (utf[0] & 0xf) << 12 | (utf[1] & 0x3f) << 6 | (utf[2] & 0x3f);
-        result.bytesConsumed = 3;
-    } else if ((utf[0] & 0xf8) == 0xf0) {
-        // UTF-8 de 4 bytes
-        result.ucs = (utf[0] & 0x07) << 18 | (utf[1] & 0x3f) << 12 | (utf[2] & 0x3f) << 6 | (utf[3] & 0x3f);
-        result.bytesConsumed = 4;
-    } else {
-        // Byte inválido
-        result.ucs = utf[0];
-        result.bytesConsumed = 1;
+        if (utf[0] < 0x80) {
+            // ASCII (1 byte)
+            result.ucs = utf[0];
+            result.bytesConsumed = 1;
+        } else if ((utf[0] & 0xe0) == 0xc0) {
+            // UTF-8 de 2 bytes
+            result.ucs = (utf[0] & 0x1f) << 6 | (utf[1] & 0x3f);
+            result.bytesConsumed = 2;
+        } else if ((utf[0] & 0xf0) == 0xe0) {
+            // UTF-8 de 3 bytes
+            result.ucs = (utf[0] & 0xf) << 12 | (utf[1] & 0x3f) << 6 | (utf[2] & 0x3f);
+            result.bytesConsumed = 3;
+        } else if ((utf[0] & 0xf8) == 0xf0) {
+            // UTF-8 de 4 bytes
+            result.ucs = (utf[0] & 0x07) << 18 | (utf[1] & 0x3f) << 12 | (utf[2] & 0x3f) << 6 | (utf[3] & 0x3f);
+            result.bytesConsumed = 4;
+        } else {
+            // Byte inválido
+            result.ucs = utf[0];
+            result.bytesConsumed = 1;
+        }
+
+        return result;
     }
 
-    return result;
-}
+    inline int getUtf8CharWidth(uint32_t ucs, font_t* font) {
+        if (!font) return 0;
 
-inline int getUtf8CharWidth(uint32_t ucs, font_t* font) {
-    if (!font) return 0;
-
-    if (font->xft_ft) {
-        return xftCharWidth(ucs, font);
-    } else {
-        return (font->width_lut && ucs >= font->charMin && ucs <= font->charMax) ?
+        if (font->xft_ft) {
+            return xftCharWidth(ucs, font);
+        } else {
+            return (font->width_lut && ucs >= font->charMin && ucs <= font->charMax) ?
             font->width_lut[ucs - font->charMin].character_width :
             font->width;
+        }
     }
-}
     Bar(
         const char *name,
         const char *_backgroundColor,
@@ -251,7 +251,7 @@ inline int getUtf8CharWidth(uint32_t ucs, font_t* font) {
             fontLoad(font.c_str());
         }
         //setClickHandler(cb);
-//Color::parse_color(hex, NULL, (Color)0x00000000U)
+        //Color::parse_color(hex, NULL, (Color)0x00000000U)
         // Ensure sensible default colors for in-process use (opaque)
         defaultBackgroundColor = backgroundColor = Color::parse_color(_backgroundColor, NULL, (Color)0x00000000U);
         defaultForegroundColor = foregroundColor = Color::parse_color(_foregroundColor, NULL, (Color)0x11111111U);
@@ -269,296 +269,296 @@ inline int getUtf8CharWidth(uint32_t ucs, font_t* font) {
         initSeparator();
     }
 
-void setClickHandler(std::function<void(const char *cmd)> cb) {
-    clickCb = cb;
-}
-
-void updateGc(void) {
-    // Only update if colors are dirty
-    if (!colorsDirty) return;
-
-    xcb_change_gc(c, gc[GC_DRAW], XCB_GC_FOREGROUND, (const uint32_t []){ foregroundColor.v });
-    xcb_change_gc(c, gc[GC_CLEAR], XCB_GC_FOREGROUND, (const uint32_t []){ backgroundColor.v });
-    xcb_change_gc(c, gc[GC_ATTR], XCB_GC_FOREGROUND, (const uint32_t []){ underlineColor.v });
-    XftColorFree(dpy, visualPtr, colormap , &selFg);
-    char color[] = "#ffffff";
-    uint32_t nfgc = foregroundColor.v & 0x00ffffff;
-    snprintf(color, sizeof(color), "#%06X", nfgc);
-    if (!XftColorAllocName (dpy, visualPtr, colormap, color, &selFg)) {
-        fprintf(stderr, "Couldn't allocate xft font color '%s'\n", color);
+    void setClickHandler(std::function<void(const char *cmd)> cb) {
+        clickCb = cb;
     }
 
-    // Mark colors as clean
-    colorsDirty = false;
-}
+    void updateGc(void) {
+        // Only update if colors are dirty
+        if (!colorsDirty) return;
 
-void markColorsDirty(void) {
-    colorsDirty = true;
-}
+        xcb_change_gc(c, gc[GC_DRAW], XCB_GC_FOREGROUND, (const uint32_t []){ foregroundColor.v });
+        xcb_change_gc(c, gc[GC_CLEAR], XCB_GC_FOREGROUND, (const uint32_t []){ backgroundColor.v });
+        xcb_change_gc(c, gc[GC_ATTR], XCB_GC_FOREGROUND, (const uint32_t []){ underlineColor.v });
+        XftColorFree(dpy, visualPtr, colormap , &selFg);
+        char color[] = "#ffffff";
+        uint32_t nfgc = foregroundColor.v & 0x00ffffff;
+        snprintf(color, sizeof(color), "#%06X", nfgc);
+        if (!XftColorAllocName (dpy, visualPtr, colormap, color, &selFg)) {
+            fprintf(stderr, "Couldn't allocate xft font color '%s'\n", color);
+        }
 
-//void fillGradient(xcb_drawable_t d, int x, int y, int width, int height, Color start, Color stop) {
+        // Mark colors as clean
+        colorsDirty = false;
+    }
+
+    void markColorsDirty(void) {
+        colorsDirty = true;
+    }
+
+    //void fillGradient(xcb_drawable_t d, int x, int y, int width, int height, Color start, Color stop) {
     //float i;
     //const int K = 25; // The number of steps
 
     //for (i = 0.; i < 1.; i += (1. / K)) {
-        //// Perform the linear interpolation magic
-        //unsigned int rr = i * stop.r + (1. - i) * start.r;
-        //unsigned int gg = i * stop.g + (1. - i) * start.g;
-        //unsigned int bb = i * stop.b + (1. - i) * start.b;
+    //// Perform the linear interpolation magic
+    //unsigned int rr = i * stop.r + (1. - i) * start.r;
+    //unsigned int gg = i * stop.g + (1. - i) * start.g;
+    //unsigned int bb = i * stop.b + (1. - i) * start.b;
 
-        //// The alpha is ignored here
-        //Color step = {
-            //static_cast<uint8_t>(bb),
-            //static_cast<uint8_t>(gg),
-            //static_cast<uint8_t>(rr),
-            //255,
-        //};
+    //// The alpha is ignored here
+    //Color step = {
+    //static_cast<uint8_t>(bb),
+    //static_cast<uint8_t>(gg),
+    //static_cast<uint8_t>(rr),
+    //255,
+    //};
 
-        //xcb_change_gc(c, gc[GC_DRAW], XCB_GC_FOREGROUND, (const uint32_t []){ step.v });
-        //xcb_poly_fill_rectangle(
-            //c,
-            //d,
-            //gc[GC_DRAW],
-            //1,
-            //(const xcb_rectangle_t []){
-                //{
-                    //static_cast<int16_t>(x),
-                    //static_cast<int16_t>(i * bh),
-                    //static_cast<uint16_t>(width),
-                    //static_cast<uint16_t>(bh / K + 1)
-                //}
-            //}
-        //);
+    //xcb_change_gc(c, gc[GC_DRAW], XCB_GC_FOREGROUND, (const uint32_t []){ step.v });
+    //xcb_poly_fill_rectangle(
+    //c,
+    //d,
+    //gc[GC_DRAW],
+    //1,
+    //(const xcb_rectangle_t []){
+    //{
+    //static_cast<int16_t>(x),
+    //static_cast<int16_t>(i * bh),
+    //static_cast<uint16_t>(width),
+    //static_cast<uint16_t>(bh / K + 1)
+    //}
+    //}
+    //);
     //}
 
     //xcb_change_gc(c, gc[GC_DRAW], XCB_GC_FOREGROUND, (const uint32_t []){ foregroundColor.v });
-//}
+    //}
 
-void fillRect(xcb_drawable_t d, xcb_gcontext_t _gc, int x, int y, int width, int height) {
+    void fillRect(xcb_drawable_t d, xcb_gcontext_t _gc, int x, int y, int width, int height) {
         xcb_poly_fill_rectangle(c, d, _gc, 1, (const xcb_rectangle_t []){ { x, y, width, height } });
-}
+    }
 
-// Apparently xcb cannot seem to compose the right request for this call, hence we have to do it by
-// ourselves.
-// The funcion is taken from 'wmdia' (http://wmdia.sourceforge.net/)
-xcb_void_cookie_t xcb_poly_text_16_simple(xcb_connection_t * c,
-    xcb_drawable_t drawable, xcb_gcontext_t gc, int16_t x, int16_t y,
-    uint32_t len, const uint16_t *str)
-{
-    static const xcb_protocol_request_t xcb_req = {
-        5,                // count
-        0,                // ext
-        XCB_POLY_TEXT_16, // opcode
-        1                 // isvoid
-    };
-    struct iovec xcb_parts[7];
-    uint8_t xcb_lendelta[2];
-    xcb_void_cookie_t xcb_ret;
-    xcb_poly_text_8_request_t xcb_out;
-
-    xcb_out.pad0 = 0;
-    xcb_out.drawable = drawable;
-    xcb_out.gc = gc;
-    xcb_out.x = x;
-    xcb_out.y = y;
-
-    xcb_lendelta[0] = len;
-    xcb_lendelta[1] = 0;
-
-    xcb_parts[2].iov_base = (char *)&xcb_out;
-    xcb_parts[2].iov_len = sizeof(xcb_out);
-    xcb_parts[3].iov_base = 0;
-    xcb_parts[3].iov_len = -xcb_parts[2].iov_len & 3;
-
-    xcb_parts[4].iov_base = xcb_lendelta;
-    xcb_parts[4].iov_len = sizeof(xcb_lendelta);
-    xcb_parts[5].iov_base = (char *)str;
-    xcb_parts[5].iov_len = len * sizeof(int16_t);
-
-    xcb_parts[6].iov_base = 0;
-    xcb_parts[6].iov_len = -(xcb_parts[4].iov_len + xcb_parts[5].iov_len) & 3;
-
-    xcb_ret.sequence = xcb_send_request(c, 0, xcb_parts + 2, &xcb_req);
-
-    return xcb_ret;
-}
-
-
-int xftCharWidthSlot(uint32_t ch) {
-    int slot = ch % MAX_WIDTHS;
-    while (xftChar[slot] != 0 && xftChar[slot] != ch)
+    // Apparently xcb cannot seem to compose the right request for this call, hence we have to do it by
+    // ourselves.
+    // The funcion is taken from 'wmdia' (http://wmdia.sourceforge.net/)
+    xcb_void_cookie_t xcb_poly_text_16_simple(xcb_connection_t * c,
+                                              xcb_drawable_t drawable, xcb_gcontext_t gc, int16_t x, int16_t y,
+                                              uint32_t len, const uint16_t *str)
     {
-        slot = (slot + 1) % MAX_WIDTHS;
-    }
-    return slot;
-}
+        static const xcb_protocol_request_t xcb_req = {
+            5,                // count
+            0,                // ext
+            XCB_POLY_TEXT_16, // opcode
+            1                 // isvoid
+        };
+        struct iovec xcb_parts[7];
+        uint8_t xcb_lendelta[2];
+        xcb_void_cookie_t xcb_ret;
+        xcb_poly_text_8_request_t xcb_out;
 
-int xftCharWidth(uint32_t ch, font_t* curFont) {
-    int slot = xftCharWidthSlot(ch);
-    if (!xftChar[slot]) {
-        XGlyphInfo gi;
-        FT_UInt glyph = XftCharIndex (dpy, curFont->xft_ft, (FcChar32) ch);
-        XftFontLoadGlyphs (dpy, curFont->xft_ft, FcFalse, &glyph, 1);
-        XftGlyphExtents (dpy, curFont->xft_ft, &glyph, 1, &gi);
-        XftFontUnloadGlyphs (dpy, curFont->xft_ft, &glyph, 1);
-        xftChar[slot] = ch;
-        if (gi.xOff >= gi.width) {
-            xftWidth[slot] = gi.xOff;
-        } else {
-            xftWidth[slot] = gi.width;
+        xcb_out.pad0 = 0;
+        xcb_out.drawable = drawable;
+        xcb_out.gc = gc;
+        xcb_out.x = x;
+        xcb_out.y = y;
+
+        xcb_lendelta[0] = len;
+        xcb_lendelta[1] = 0;
+
+        xcb_parts[2].iov_base = (char *)&xcb_out;
+        xcb_parts[2].iov_len = sizeof(xcb_out);
+        xcb_parts[3].iov_base = 0;
+        xcb_parts[3].iov_len = -xcb_parts[2].iov_len & 3;
+
+        xcb_parts[4].iov_base = xcb_lendelta;
+        xcb_parts[4].iov_len = sizeof(xcb_lendelta);
+        xcb_parts[5].iov_base = (char *)str;
+        xcb_parts[5].iov_len = len * sizeof(int16_t);
+
+        xcb_parts[6].iov_base = 0;
+        xcb_parts[6].iov_len = -(xcb_parts[4].iov_len + xcb_parts[5].iov_len) & 3;
+
+        xcb_ret.sequence = xcb_send_request(c, 0, xcb_parts + 2, &xcb_req);
+
+        return xcb_ret;
+    }
+
+
+    int xftCharWidthSlot(uint32_t ch) {
+        int slot = ch % MAX_WIDTHS;
+        while (xftChar[slot] != 0 && xftChar[slot] != ch)
+        {
+            slot = (slot + 1) % MAX_WIDTHS;
         }
-        return xftWidth[slot];
-    } else if (xftChar[slot] == ch)
-        return xftWidth[slot];
-    else
-        return 0;
-}
-
-int shift(monitor_t* mon, int x, int align, int chWidth) {
-    switch (align) {
-        case ALIGN_C:
-            xcb_copy_area(c, mon->pixmap, mon->pixmap, gc[GC_DRAW],
-                    mon->width / 2 - x / 2, 0,
-                    mon->width / 2 - (x + chWidth) / 2, 0,
-                    x, bh);
-            x = mon->width / 2 - (x + chWidth) / 2 + x;
-            break;
-        case ALIGN_R:
-            xcb_copy_area(c, mon->pixmap, mon->pixmap, gc[GC_DRAW],
-                    mon->width - x, 0,
-                    mon->width - x - chWidth, 0,
-                    x, bh);
-            x = mon->width - chWidth;
-            break;
+        return slot;
     }
+
+    int xftCharWidth(uint32_t ch, font_t* curFont) {
+        int slot = xftCharWidthSlot(ch);
+        if (!xftChar[slot]) {
+            XGlyphInfo gi;
+            FT_UInt glyph = XftCharIndex (dpy, curFont->xft_ft, (FcChar32) ch);
+            XftFontLoadGlyphs (dpy, curFont->xft_ft, FcFalse, &glyph, 1);
+            XftGlyphExtents (dpy, curFont->xft_ft, &glyph, 1, &gi);
+            XftFontUnloadGlyphs (dpy, curFont->xft_ft, &glyph, 1);
+            xftChar[slot] = ch;
+            if (gi.xOff >= gi.width) {
+                xftWidth[slot] = gi.xOff;
+            } else {
+                xftWidth[slot] = gi.width;
+            }
+            return xftWidth[slot];
+        } else if (xftChar[slot] == ch)
+            return xftWidth[slot];
+        else
+            return 0;
+    }
+
+    int shift(monitor_t* mon, int x, int align, int chWidth) {
+        switch (align) {
+            case ALIGN_C:
+                xcb_copy_area(c, mon->pixmap, mon->pixmap, gc[GC_DRAW],
+                              mon->width / 2 - x / 2, 0,
+                              mon->width / 2 - (x + chWidth) / 2, 0,
+                              x, bh);
+                x = mon->width / 2 - (x + chWidth) / 2 + x;
+                break;
+            case ALIGN_R:
+                xcb_copy_area(c, mon->pixmap, mon->pixmap, gc[GC_DRAW],
+                              mon->width - x, 0,
+                              mon->width - x - chWidth, 0,
+                              x, bh);
+                x = mon->width - chWidth;
+                break;
+        }
 
         /* Draw the background first */
-    fillRect(mon->pixmap, gc[GC_CLEAR], x, 0, chWidth, bh);
-    return x;
-}
-
-void drawLines(monitor_t* mon, int x, int w) {
-    /* We can render both at the same time */
-    if (attrs & ATTR_OVERL)
-        fillRect(mon->pixmap, gc[GC_ATTR], x, 0, w, bu);
-    if (attrs & ATTR_UNDERL)
-        fillRect(mon->pixmap, gc[GC_ATTR], x, bh - bu, w, bu);
-}
-
-void drawShift(monitor_t* mon, int x, int align, int w) {
-    x = shift(mon, x, align, w);
-    drawLines(mon, x, w);
-}
-
-int drawChar(monitor_t* mon, font_t* curFont, int x, int align, uint32_t ch) {
-    int chWidth;
-
-    if (curFont->xft_ft) {
-        chWidth = xftCharWidth(ch, curFont);
-    } else {
-        chWidth = (curFont->width_lut) ?
-            curFont->width_lut[ch - curFont->charMin].character_width:
-            curFont->width;
+        fillRect(mon->pixmap, gc[GC_CLEAR], x, 0, chWidth, bh);
+        return x;
     }
 
-    x = shift(mon, x, align, chWidth);
+    void drawLines(monitor_t* mon, int x, int w) {
+        /* We can render both at the same time */
+        if (attrs & ATTR_OVERL)
+            fillRect(mon->pixmap, gc[GC_ATTR], x, 0, w, bu);
+        if (attrs & ATTR_UNDERL)
+            fillRect(mon->pixmap, gc[GC_ATTR], x, bh - bu, w, bu);
+    }
 
-    int y = bh / 2 + curFont->height / 2- curFont->descent + offsetsY[offsetYIndex];
-    if (curFont->xft_ft) {
-        // Para Xft usa la versión de 32 bits que soporta tus iconos grandes
-        XftDrawString32(xftDraw, &selFg, curFont->xft_ft, x, y, (const FcChar32 *)&ch, 1);
-    } else {
-        // Para XCB, solo si el icono cabe en 16 bits
-        if (ch <= 0xFFFF) {
-            uint16_t ch16 = (uint16_t)ch;
-            // XCB requiere Big Endian para texto de 16 bits, hay que swappear
-            ch16 = (ch16 >> 8) | (ch16 << 8);
-            xcb_poly_text_16_simple(c, mon->pixmap, gc[GC_DRAW], x, y, 1, &ch16);
+    void drawShift(monitor_t* mon, int x, int align, int w) {
+        x = shift(mon, x, align, w);
+        drawLines(mon, x, w);
+    }
+
+    int drawChar(monitor_t* mon, font_t* curFont, int x, int align, uint32_t ch) {
+        int chWidth;
+
+        if (curFont->xft_ft) {
+            chWidth = xftCharWidth(ch, curFont);
+        } else {
+            chWidth = (curFont->width_lut) ?
+                curFont->width_lut[ch - curFont->charMin].character_width:
+                curFont->width;
+        }
+
+        x = shift(mon, x, align, chWidth);
+
+        int y = bh / 2 + curFont->height / 2- curFont->descent + offsetsY[offsetYIndex];
+        if (curFont->xft_ft) {
+            // Para Xft usa la versión de 32 bits que soporta tus iconos grandes
+            XftDrawString32(xftDraw, &selFg, curFont->xft_ft, x, y, (const FcChar32 *)&ch, 1);
+        } else {
+            // Para XCB, solo si el icono cabe en 16 bits
+            if (ch <= 0xFFFF) {
+                uint16_t ch16 = (uint16_t)ch;
+                // XCB requiere Big Endian para texto de 16 bits, hay que swappear
+                ch16 = (ch16 >> 8) | (ch16 << 8);
+                xcb_poly_text_16_simple(c, mon->pixmap, gc[GC_DRAW], x, y, 1, &ch16);
+            }
+        }
+
+        drawLines(mon, x, chWidth);
+
+        return chWidth;
+    }
+
+
+    void setAttribute(const char modifier, const char attribute) {
+        int pos = indexof(attribute, "ou");
+
+        if (pos < 0) {
+            fprintf(stderr, "Invalid attribute \"%c\" found\n", attribute);
+            return;
+        }
+
+        switch (modifier) {
+            case '+':
+                attrs |= (1u<<pos);
+                break;
+            case '-':
+                attrs &=~(1u<<pos);
+                break;
+            case '!':
+                attrs ^= (1u<<pos);
+                break;
         }
     }
 
-    drawLines(mon, x, chWidth);
 
-    return chWidth;
-}
-
-
-void setAttribute(const char modifier, const char attribute) {
-    int pos = indexof(attribute, "ou");
-
-    if (pos < 0) {
-        fprintf(stderr, "Invalid attribute \"%c\" found\n", attribute);
-        return;
-    }
-
-    switch (modifier) {
-    case '+':
-        attrs |= (1u<<pos);
-        break;
-    case '-':
-        attrs &=~(1u<<pos);
-        break;
-    case '!':
-        attrs ^= (1u<<pos);
-        break;
-    }
-}
-
-
-//area_t *
-//area_get (xcb_window_t win, const int btn, const int x)
-//{
+    //area_t *
+    //area_get (xcb_window_t win, const int btn, const int x)
+    //{
     //// Looping backwards ensures that we get the innermost area first
     //for (int i = area_stack.at - 1; i >= 0; i--) {
-        //area_t *a = &area_stack.area[i];
-        //if (a->window == win && a->button == btn && x >= a->begin && x < a->end)
-            //return a;
+    //area_t *a = &area_stack.area[i];
+    //if (a->window == win && a->button == btn && x >= a->begin && x < a->end)
+    //return a;
     //}
     //return NULL;
-//}
+    //}
 
 
 
-bool
-fontHasGlyph (font_t *font, const uint32_t c)
-{
-    if (font->xft_ft) {
-        if (XftCharExists(dpy, font->xft_ft, (FcChar32) c)) {
-            return true;
-        } else {
+    bool
+    fontHasGlyph (font_t *font, const uint32_t c)
+    {
+        if (font->xft_ft) {
+            if (XftCharExists(dpy, font->xft_ft, (FcChar32) c)) {
+                return true;
+            } else {
+                return false;
+            }
+
+        }
+
+        if (c < font->charMin || c > font->charMax)
             return false;
+
+        if (font->width_lut && font->width_lut[c - font->charMin].character_width == 0)
+            return false;
+
+        return true;
+    }
+
+    font_t *
+    selectDrawableFont (const uint32_t c)
+    {
+        // If the user has specified a font to use, try that first.
+        if (fontIndex != -1 && fontHasGlyph(fontList[fontIndex - 1], c)) {
+            offsetYIndex = fontIndex - 1;
+            return fontList[fontIndex - 1];
         }
 
-    }
-
-    if (c < font->charMin || c > font->charMax)
-        return false;
-
-    if (font->width_lut && font->width_lut[c - font->charMin].character_width == 0)
-        return false;
-
-    return true;
-}
-
-font_t *
-selectDrawableFont (const uint32_t c)
-{
-    // If the user has specified a font to use, try that first.
-    if (fontIndex != -1 && fontHasGlyph(fontList[fontIndex - 1], c)) {
-        offsetYIndex = fontIndex - 1;
-        return fontList[fontIndex - 1];
-    }
-
-    // If the end is reached without finding an appropriate font, return NULL.
-    // If the font can draw the character, return it.
-    for (int i = 0; i < fontCount; i++) {
-        if (fontHasGlyph(fontList[i], c)) {
-            offsetYIndex = i;
-            return fontList[i];
+        // If the end is reached without finding an appropriate font, return NULL.
+        // If the font can draw the character, return it.
+        for (int i = 0; i < fontCount; i++) {
+            if (fontHasGlyph(fontList[i], c)) {
+                offsetYIndex = i;
+                return fontList[i];
+            }
         }
+        return NULL;
     }
-    return NULL;
-}
 
 
     void
@@ -602,8 +602,8 @@ selectDrawableFont (const uint32_t c)
             ret->descent = font_info->font_descent;
             ret->height = font_info->font_ascent + font_info->font_descent;
             ret->width = font_info->max_bounds.character_width;
-ret->charMax = font_info->max_byte1 << 8 | font_info->max_char_or_byte2;
-    ret->charMin = font_info->min_byte1 << 8 | font_info->min_char_or_byte2;
+            ret->charMax = font_info->max_byte1 << 8 | font_info->max_char_or_byte2;
+            ret->charMin = font_info->min_byte1 << 8 | font_info->min_char_or_byte2;
             // Copy over the width lut as it's part of font_info
             int lut_size = sizeof(xcb_charinfo_t) * xcb_query_font_char_infos_length(font_info);
             if (lut_size) {
@@ -917,7 +917,7 @@ ret->charMax = font_info->max_byte1 << 8 | font_info->max_char_or_byte2;
 
             if (curFont->ptr) {
                 xcb_change_gc(c, gc[GC_DRAW] , XCB_GC_FONT,
-                    (const uint32_t []) { curFont->ptr });
+                              (const uint32_t []) { curFont->ptr });
             }
 
             drawChar(cur_mon, curFont, pos_x, ALIGN_L, ucs);
@@ -969,539 +969,539 @@ ret->charMax = font_info->max_byte1 << 8 | font_info->max_char_or_byte2;
         return xcb_get_file_descriptor(c);
     }
 
-void processXEvents(void) {
-    fprintf(stderr, "[lemonbar] lemonbar_process_xevents: polling events\n");
-    xcb_generic_event_t *ev;
-    bool redraw = false;
+    void processXEvents(void) {
+        fprintf(stderr, "[lemonbar] lemonbar_process_xevents: polling events\n");
+        xcb_generic_event_t *ev;
+        bool redraw = false;
 
-    while ((ev = xcb_poll_for_event(c))) {
-        xcb_expose_event_t *expose_ev = (xcb_expose_event_t *)ev;
-        switch (ev->response_type & 0x7F) {
-            case XCB_EXPOSE:
-                fprintf(stderr, "[lemonbar] event: EXPOSE count=%d, processingExpose=%s\n", expose_ev->count, processingExpose ? "true" : "false");
-                // Skip EXPOSE events that we generated ourselves to prevent infinite loop
-                if (expose_ev->count == 0 && !processingExpose) {
-                    redraw = true;
-                }
-                break;
-            case XCB_BUTTON_PRESS: {
-                xcb_button_press_event_t *press_ev = (xcb_button_press_event_t *)ev;
-                fprintf(stderr, "[lemonbar] event: BUTTON_PRESS win=%u detail=%u x=%u\n", press_ev->event, press_ev->detail, press_ev->event_x);
+        while ((ev = xcb_poll_for_event(c))) {
+            xcb_expose_event_t *expose_ev = (xcb_expose_event_t *)ev;
+            switch (ev->response_type & 0x7F) {
+                case XCB_EXPOSE:
+                    fprintf(stderr, "[lemonbar] event: EXPOSE count=%d, processingExpose=%s\n", expose_ev->count, processingExpose ? "true" : "false");
+                    // Skip EXPOSE events that we generated ourselves to prevent infinite loop
+                    if (expose_ev->count == 0 && !processingExpose) {
+                        redraw = true;
+                    }
+                    break;
+                case XCB_BUTTON_PRESS: {
+                    xcb_button_press_event_t *press_ev = (xcb_button_press_event_t *)ev;
+                    fprintf(stderr, "[lemonbar] event: BUTTON_PRESS win=%u detail=%u x=%u\n", press_ev->event, press_ev->detail, press_ev->event_x);
 
-                bool eventHandled = false;
-                for (Module *module : modules) {
-                    if (eventHandled) break;
-                    for (BarElement *element : module->getElements()) {
+                    bool eventHandled = false;
+                    for (Module *module : modules) {
                         if (eventHandled) break;
-                        for (std::pair<BarElement::EventType, EventFunction> pair : element->events) {
-                            if (pair.first != (const int)press_ev->detail)
-                                continue;
-                            if (
-                                module->window == press_ev->event &&
-                                ((const int)press_ev->event_x) >= element->beginX &&
-                                ((const int)press_ev->event_x) < (element->beginX + element->width)
-                            ) {
-                                pair.second();
-                                eventHandled = true;
-                                break;
+                        for (BarElement *element : module->getElements()) {
+                            if (eventHandled) break;
+                            for (std::pair<BarElement::EventType, EventFunction> pair : element->events) {
+                                if (pair.first != (const int)press_ev->detail)
+                                    continue;
+                                if (
+                                    module->window == press_ev->event &&
+                                    ((const int)press_ev->event_x) >= element->beginX &&
+                                    ((const int)press_ev->event_x) < (element->beginX + element->width)
+                                ) {
+                                    pair.second();
+                                    eventHandled = true;
+                                    break;
+                                }
                             }
                         }
                     }
+                    break;
                 }
-                break;
+            }
+            free(ev);
+        }
+
+        if (redraw) {
+            fprintf(stderr, "[lemonbar] lemonbar_process_xevents: redraw requested\n");
+            // Set flag to prevent infinite EXPOSE loop when we redraw
+            processingExpose = true;
+            for (monitor_t *mon = monhead; mon; mon = mon->next) {
+                xcb_copy_area(c, mon->pixmap, mon->window, gc[GC_DRAW], 0, 0, 0, 0, mon->width, bh);
+            }
+            xcb_flush(c);
+            // Clear the flag after flush is complete
+            processingExpose = false;
+        }
+    }
+
+
+    enum {
+        NET_WM_WINDOW_TYPE,
+        NET_WM_WINDOW_TYPE_DOCK,
+        NET_WM_DESKTOP,
+        NET_WM_STRUT_PARTIAL,
+        NET_WM_STRUT,
+        NET_WM_STATE,
+        NET_WM_STATE_STICKY,
+        NET_WM_STATE_ABOVE,
+    };
+
+    void
+    setEwmhAtoms (void)
+    {
+        const char *atom_names[] = {
+            "_NET_WM_WINDOW_TYPE",
+            "_NET_WM_WINDOW_TYPE_DOCK",
+            "_NET_WM_DESKTOP",
+            "_NET_WM_STRUT_PARTIAL",
+            "_NET_WM_STRUT",
+            "_NET_WM_STATE",
+            // Leave those at the end since are batch-set
+            "_NET_WM_STATE_STICKY",
+            "_NET_WM_STATE_ABOVE",
+        };
+        const int atoms = sizeof(atom_names)/sizeof(char *);
+        xcb_intern_atom_cookie_t atom_cookie[atoms];
+        xcb_atom_t atom_list[atoms];
+        xcb_intern_atom_reply_t *atom_reply;
+
+        // As suggested fetch all the cookies first (yum!) and then retrieve the
+        // atoms to exploit the async'ness
+        for (int i = 0; i < atoms; i++)
+            atom_cookie[i] = xcb_intern_atom(c, 0, strlen(atom_names[i]), atom_names[i]);
+
+        for (int i = 0; i < atoms; i++) {
+            atom_reply = xcb_intern_atom_reply(c, atom_cookie[i], NULL);
+            if (!atom_reply)
+                return;
+            atom_list[i] = atom_reply->atom;
+            free(atom_reply);
+        }
+
+        // Prepare the strut array
+        for (monitor_t *mon = monhead; mon; mon = mon->next) {
+            int strut[12] = {0};
+            if (topbar) {
+                strut[2] = bh;
+                strut[8] = mon->x;
+                strut[9] = mon->x + mon->width;
+            } else {
+                strut[3]  = bh;
+                strut[10] = mon->x;
+                strut[11] = mon->x + mon->width;
+            }
+
+            xcb_change_property(c, XCB_PROP_MODE_REPLACE, mon->window, atom_list[NET_WM_WINDOW_TYPE], XCB_ATOM_ATOM, 32, 1, &atom_list[NET_WM_WINDOW_TYPE_DOCK]);
+            xcb_change_property(c, XCB_PROP_MODE_APPEND,  mon->window, atom_list[NET_WM_STATE], XCB_ATOM_ATOM, 32, 2, &atom_list[NET_WM_STATE_STICKY]);
+            xcb_change_property(c, XCB_PROP_MODE_REPLACE, mon->window, atom_list[NET_WM_DESKTOP], XCB_ATOM_CARDINAL, 32, 1, (const uint32_t []) {
+                0u - 1u
+            } );
+            xcb_change_property(c, XCB_PROP_MODE_REPLACE, mon->window, atom_list[NET_WM_STRUT_PARTIAL], XCB_ATOM_CARDINAL, 32, 12, strut);
+            xcb_change_property(c, XCB_PROP_MODE_REPLACE, mon->window, atom_list[NET_WM_STRUT], XCB_ATOM_CARDINAL, 32, 4, strut);
+            xcb_change_property(c, XCB_PROP_MODE_REPLACE, mon->window, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, 3, "bar");
+            xcb_change_property(c, XCB_PROP_MODE_REPLACE, mon->window, XCB_ATOM_WM_CLASS, XCB_ATOM_STRING, 8, 12, "lemonbar\0Bar");
+        }
+    }
+
+    monitor_t *
+    monitorNew (int x, int y, int width, int height)
+    {
+        monitor_t *ret;
+
+        ret = static_cast<monitor_t *>(calloc(1, sizeof(monitor_t)));
+        if (!ret) {
+            fprintf(stderr, "Failed to allocate new monitor\n");
+            exit(EXIT_FAILURE);
+        }
+
+        ret->x = x;
+        ret->y = (topbar ? by : height - bh - by) + y;
+        ret->width = width;
+        ret->next = ret->prev = NULL;
+        ret->window = xcb_generate_id(c);
+        int depth = (visual == scr->root_visual) ? XCB_COPY_FROM_PARENT : 32;
+        xcb_create_window(c, depth, ret->window, scr->root,
+                          ret->x, ret->y, width, bh, 0,
+                          XCB_WINDOW_CLASS_INPUT_OUTPUT, visual,
+                          XCB_CW_BACK_PIXEL | XCB_CW_BORDER_PIXEL | XCB_CW_OVERRIDE_REDIRECT | XCB_CW_EVENT_MASK | XCB_CW_COLORMAP,
+                          (const uint32_t []) {
+                          backgroundColor.v, backgroundColor.v, dock, XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_BUTTON_PRESS, colormap
+                          });
+
+        /* Force full opacity via _NET_WM_WINDOW_OPACITY to work around compositors */
+        {
+            xcb_intern_atom_cookie_t opa_cookie = xcb_intern_atom(c, 0, strlen("_NET_WM_WINDOW_OPACITY"), "_NET_WM_WINDOW_OPACITY");
+            xcb_intern_atom_reply_t *opa_reply = xcb_intern_atom_reply(c, opa_cookie, NULL);
+            if (opa_reply) {
+                xcb_atom_t opa_atom = opa_reply->atom;
+                uint32_t opacity_val = 0xFFFFFFFFu;
+                xcb_change_property(c, XCB_PROP_MODE_REPLACE, ret->window, opa_atom, XCB_ATOM_CARDINAL, 32, 1, &opacity_val);
+                free(opa_reply);
             }
         }
-        free(ev);
+
+        ret->pixmap = xcb_generate_id(c);
+        xcb_create_pixmap(c, depth, ret->pixmap, ret->window, width, bh);
+
+        return ret;
     }
 
-    if (redraw) {
-        fprintf(stderr, "[lemonbar] lemonbar_process_xevents: redraw requested\n");
-        // Set flag to prevent infinite EXPOSE loop when we redraw
-        processingExpose = true;
-        for (monitor_t *mon = monhead; mon; mon = mon->next) {
-            xcb_copy_area(c, mon->pixmap, mon->window, gc[GC_DRAW], 0, 0, 0, 0, mon->width, bh);
-        }
-        xcb_flush(c);
-        // Clear the flag after flush is complete
-        processingExpose = false;
-    }
-}
-
-
-enum {
-    NET_WM_WINDOW_TYPE,
-    NET_WM_WINDOW_TYPE_DOCK,
-    NET_WM_DESKTOP,
-    NET_WM_STRUT_PARTIAL,
-    NET_WM_STRUT,
-    NET_WM_STATE,
-    NET_WM_STATE_STICKY,
-    NET_WM_STATE_ABOVE,
-};
-
-void
-setEwmhAtoms (void)
-{
-    const char *atom_names[] = {
-        "_NET_WM_WINDOW_TYPE",
-        "_NET_WM_WINDOW_TYPE_DOCK",
-        "_NET_WM_DESKTOP",
-        "_NET_WM_STRUT_PARTIAL",
-        "_NET_WM_STRUT",
-        "_NET_WM_STATE",
-        // Leave those at the end since are batch-set
-        "_NET_WM_STATE_STICKY",
-        "_NET_WM_STATE_ABOVE",
-    };
-    const int atoms = sizeof(atom_names)/sizeof(char *);
-    xcb_intern_atom_cookie_t atom_cookie[atoms];
-    xcb_atom_t atom_list[atoms];
-    xcb_intern_atom_reply_t *atom_reply;
-
-    // As suggested fetch all the cookies first (yum!) and then retrieve the
-    // atoms to exploit the async'ness
-    for (int i = 0; i < atoms; i++)
-        atom_cookie[i] = xcb_intern_atom(c, 0, strlen(atom_names[i]), atom_names[i]);
-
-    for (int i = 0; i < atoms; i++) {
-        atom_reply = xcb_intern_atom_reply(c, atom_cookie[i], NULL);
-        if (!atom_reply)
-            return;
-        atom_list[i] = atom_reply->atom;
-        free(atom_reply);
-    }
-
-    // Prepare the strut array
-    for (monitor_t *mon = monhead; mon; mon = mon->next) {
-        int strut[12] = {0};
-        if (topbar) {
-            strut[2] = bh;
-            strut[8] = mon->x;
-            strut[9] = mon->x + mon->width;
+    void
+    monitorAdd (monitor_t *mon)
+    {
+        if (!monhead) {
+            monhead = mon;
+        } else if (!montail) {
+            montail = mon;
+            monhead->next = mon;
+            mon->prev = monhead;
         } else {
-            strut[3]  = bh;
-            strut[10] = mon->x;
-            strut[11] = mon->x + mon->width;
+            mon->prev = montail;
+            montail->next = mon;
+            montail = montail->next;
         }
-
-        xcb_change_property(c, XCB_PROP_MODE_REPLACE, mon->window, atom_list[NET_WM_WINDOW_TYPE], XCB_ATOM_ATOM, 32, 1, &atom_list[NET_WM_WINDOW_TYPE_DOCK]);
-        xcb_change_property(c, XCB_PROP_MODE_APPEND,  mon->window, atom_list[NET_WM_STATE], XCB_ATOM_ATOM, 32, 2, &atom_list[NET_WM_STATE_STICKY]);
-        xcb_change_property(c, XCB_PROP_MODE_REPLACE, mon->window, atom_list[NET_WM_DESKTOP], XCB_ATOM_CARDINAL, 32, 1, (const uint32_t []) {
-            0u - 1u
-        } );
-        xcb_change_property(c, XCB_PROP_MODE_REPLACE, mon->window, atom_list[NET_WM_STRUT_PARTIAL], XCB_ATOM_CARDINAL, 32, 12, strut);
-        xcb_change_property(c, XCB_PROP_MODE_REPLACE, mon->window, atom_list[NET_WM_STRUT], XCB_ATOM_CARDINAL, 32, 4, strut);
-        xcb_change_property(c, XCB_PROP_MODE_REPLACE, mon->window, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, 3, "bar");
-        xcb_change_property(c, XCB_PROP_MODE_REPLACE, mon->window, XCB_ATOM_WM_CLASS, XCB_ATOM_STRING, 8, 12, "lemonbar\0Bar");
-    }
-}
-
-monitor_t *
-monitorNew (int x, int y, int width, int height)
-{
-    monitor_t *ret;
-
-    ret = static_cast<monitor_t *>(calloc(1, sizeof(monitor_t)));
-    if (!ret) {
-        fprintf(stderr, "Failed to allocate new monitor\n");
-        exit(EXIT_FAILURE);
     }
 
-    ret->x = x;
-    ret->y = (topbar ? by : height - bh - by) + y;
-    ret->width = width;
-    ret->next = ret->prev = NULL;
-    ret->window = xcb_generate_id(c);
-    int depth = (visual == scr->root_visual) ? XCB_COPY_FROM_PARENT : 32;
-    xcb_create_window(c, depth, ret->window, scr->root,
-                      ret->x, ret->y, width, bh, 0,
-                      XCB_WINDOW_CLASS_INPUT_OUTPUT, visual,
-                      XCB_CW_BACK_PIXEL | XCB_CW_BORDER_PIXEL | XCB_CW_OVERRIDE_REDIRECT | XCB_CW_EVENT_MASK | XCB_CW_COLORMAP,
-    (const uint32_t []) {
-        backgroundColor.v, backgroundColor.v, dock, XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_BUTTON_PRESS, colormap
-    });
-
-    /* Force full opacity via _NET_WM_WINDOW_OPACITY to work around compositors */
+    int
+    static rectSortCb (const void *p1, const void *p2)
     {
-        xcb_intern_atom_cookie_t opa_cookie = xcb_intern_atom(c, 0, strlen("_NET_WM_WINDOW_OPACITY"), "_NET_WM_WINDOW_OPACITY");
-        xcb_intern_atom_reply_t *opa_reply = xcb_intern_atom_reply(c, opa_cookie, NULL);
-        if (opa_reply) {
-            xcb_atom_t opa_atom = opa_reply->atom;
-            uint32_t opacity_val = 0xFFFFFFFFu;
-            xcb_change_property(c, XCB_PROP_MODE_REPLACE, ret->window, opa_atom, XCB_ATOM_CARDINAL, 32, 1, &opacity_val);
-            free(opa_reply);
+        const xcb_rectangle_t *r1 = (xcb_rectangle_t *)p1;
+        const xcb_rectangle_t *r2 = (xcb_rectangle_t *)p2;
+
+        if (r1->x < r2->x || r1->y + r1->height <= r2->y)
+        {
+            return -1;
         }
+
+        if (r1->x > r2->x || r1->y + r1->height > r2->y)
+        {
+            return 1;
+        }
+
+        return 0;
     }
 
-    ret->pixmap = xcb_generate_id(c);
-    xcb_create_pixmap(c, depth, ret->pixmap, ret->window, width, bh);
-
-    return ret;
-}
-
-void
-monitorAdd (monitor_t *mon)
-{
-    if (!monhead) {
-        monhead = mon;
-    } else if (!montail) {
-        montail = mon;
-        monhead->next = mon;
-        mon->prev = monhead;
-    } else {
-        mon->prev = montail;
-        montail->next = mon;
-        montail = montail->next;
-    }
-}
-
-int
-static rectSortCb (const void *p1, const void *p2)
-{
-    const xcb_rectangle_t *r1 = (xcb_rectangle_t *)p1;
-    const xcb_rectangle_t *r2 = (xcb_rectangle_t *)p2;
-
-    if (r1->x < r2->x || r1->y + r1->height <= r2->y)
+    void
+    monitorCreateChain (xcb_rectangle_t *rects, const int num)
     {
-        return -1;
+        int i;
+        int width = 0, height = 0;
+        int left = bx;
+
+        // Sort before use
+        qsort(rects, num, sizeof(xcb_rectangle_t), rectSortCb);
+
+        for (i = 0; i < num; i++) {
+            int h = rects[i].y + rects[i].height;
+            // Accumulated width of all monitors
+            width += rects[i].width;
+            // Get height of screen from y_offset + height of lowest monitor
+            if (h >= height)
+                height = h;
+        }
+
+        if (bw < 0)
+            bw = width - bx;
+
+        // Use the first font height as all the font heights have been set to the biggest of the set
+        if (bh < 0 || bh > height)
+            bh = fontList[0]->height + bu + 2;
+
+        // Check the geometry
+        if (bx + bw > width || by + bh > height) {
+            fprintf(stderr, "The geometry specified doesn't fit the screen!\n");
+            exit(EXIT_FAILURE);
+        }
+
+        // Left is a positive number or zero therefore monitors with zero width are excluded
+        width = bw;
+        for (i = 0; i < num; i++) {
+            if (rects[i].y + rects[i].height < by)
+                continue;
+            if (rects[i].width > left) {
+                monitor_t *mon = monitorNew(
+                    rects[i].x + left,
+                    rects[i].y,
+                    min(width, rects[i].width - left),
+                    rects[i].height);
+
+                if (!mon)
+                    break;
+
+                monitorAdd(mon);
+
+                width -= rects[i].width - left;
+                // No need to check for other monitors
+                if (width <= 0)
+                    break;
+            }
+
+            left -= rects[i].width;
+
+            if (left < 0)
+                left = 0;
+        }
     }
 
-    if (r1->x > r2->x || r1->y + r1->height > r2->y)
+    void
+    getRandrMonitors (void)
     {
-        return 1;
-    }
+        xcb_randr_get_screen_resources_current_reply_t *rres_reply;
+        xcb_randr_output_t *outputs;
+        int i, j, num, valid = 0;
 
-    return 0;
-}
+        rres_reply = xcb_randr_get_screen_resources_current_reply(c,
+                                                                  xcb_randr_get_screen_resources_current(c, scr->root), NULL);
 
-void
-monitorCreateChain (xcb_rectangle_t *rects, const int num)
-{
-    int i;
-    int width = 0, height = 0;
-    int left = bx;
-
-    // Sort before use
-    qsort(rects, num, sizeof(xcb_rectangle_t), rectSortCb);
-
-    for (i = 0; i < num; i++) {
-        int h = rects[i].y + rects[i].height;
-        // Accumulated width of all monitors
-        width += rects[i].width;
-        // Get height of screen from y_offset + height of lowest monitor
-        if (h >= height)
-            height = h;
-    }
-
-    if (bw < 0)
-        bw = width - bx;
-
-    // Use the first font height as all the font heights have been set to the biggest of the set
-    if (bh < 0 || bh > height)
-        bh = fontList[0]->height + bu + 2;
-
-    // Check the geometry
-    if (bx + bw > width || by + bh > height) {
-        fprintf(stderr, "The geometry specified doesn't fit the screen!\n");
-        exit(EXIT_FAILURE);
-    }
-
-    // Left is a positive number or zero therefore monitors with zero width are excluded
-    width = bw;
-    for (i = 0; i < num; i++) {
-        if (rects[i].y + rects[i].height < by)
-            continue;
-        if (rects[i].width > left) {
-            monitor_t *mon = monitorNew(
-                                 rects[i].x + left,
-                                 rects[i].y,
-                                 min(width, rects[i].width - left),
-                                 rects[i].height);
-
-            if (!mon)
-                break;
-
-            monitorAdd(mon);
-
-            width -= rects[i].width - left;
-            // No need to check for other monitors
-            if (width <= 0)
-                break;
+        if (!rres_reply) {
+            fprintf(stderr, "Failed to get current randr screen resources\n");
+            return;
         }
 
-        left -= rects[i].width;
-
-        if (left < 0)
-            left = 0;
-    }
-}
-
-void
-getRandrMonitors (void)
-{
-    xcb_randr_get_screen_resources_current_reply_t *rres_reply;
-    xcb_randr_output_t *outputs;
-    int i, j, num, valid = 0;
-
-    rres_reply = xcb_randr_get_screen_resources_current_reply(c,
-                 xcb_randr_get_screen_resources_current(c, scr->root), NULL);
-
-    if (!rres_reply) {
-        fprintf(stderr, "Failed to get current randr screen resources\n");
-        return;
-    }
-
-    num = xcb_randr_get_screen_resources_current_outputs_length(rres_reply);
-    outputs = xcb_randr_get_screen_resources_current_outputs(rres_reply);
+        num = xcb_randr_get_screen_resources_current_outputs_length(rres_reply);
+        outputs = xcb_randr_get_screen_resources_current_outputs(rres_reply);
 
 
-    // There should be at least one output
-    if (num < 1) {
-        free(rres_reply);
-        return;
-    }
-
-    xcb_rectangle_t rects[num];
-
-    // Get all outputs
-    for (i = 0; i < num; i++) {
-        xcb_randr_get_output_info_reply_t *oi_reply;
-        xcb_randr_get_crtc_info_reply_t *ci_reply;
-
-        oi_reply = xcb_randr_get_output_info_reply(c, xcb_randr_get_output_info(c, outputs[i], XCB_CURRENT_TIME), NULL);
-
-        // Output disconnected or not attached to any CRTC ?
-        if (!oi_reply || oi_reply->crtc == XCB_NONE || oi_reply->connection != XCB_RANDR_CONNECTION_CONNECTED) {
-            free(oi_reply);
-            rects[i].width = 0;
-            continue;
-        }
-
-        ci_reply = xcb_randr_get_crtc_info_reply(c,
-                   xcb_randr_get_crtc_info(c, oi_reply->crtc, XCB_CURRENT_TIME), NULL);
-
-        free(oi_reply);
-
-        if (!ci_reply) {
-            fprintf(stderr, "Failed to get RandR ctrc info\n");
+        // There should be at least one output
+        if (num < 1) {
             free(rres_reply);
             return;
         }
 
-        // There's no need to handle rotated screens here (see #69)
-        rects[i] = (xcb_rectangle_t){ ci_reply->x, ci_reply->y, ci_reply->width, ci_reply->height };
+        xcb_rectangle_t rects[num];
 
-        free(ci_reply);
+        // Get all outputs
+        for (i = 0; i < num; i++) {
+            xcb_randr_get_output_info_reply_t *oi_reply;
+            xcb_randr_get_crtc_info_reply_t *ci_reply;
 
-        valid++;
-    }
+            oi_reply = xcb_randr_get_output_info_reply(c, xcb_randr_get_output_info(c, outputs[i], XCB_CURRENT_TIME), NULL);
 
-    free(rres_reply);
+            // Output disconnected or not attached to any CRTC ?
+            if (!oi_reply || oi_reply->crtc == XCB_NONE || oi_reply->connection != XCB_RANDR_CONNECTION_CONNECTED) {
+                free(oi_reply);
+                rects[i].width = 0;
+                continue;
+            }
 
-    // Check for clones and inactive outputs
-    for (i = 0; i < num; i++) {
-        if (rects[i].width == 0)
-            continue;
+            ci_reply = xcb_randr_get_crtc_info_reply(c,
+                                                     xcb_randr_get_crtc_info(c, oi_reply->crtc, XCB_CURRENT_TIME), NULL);
 
-        for (j = 0; j < num; j++) {
-            // Does I contain J ?
+            free(oi_reply);
 
-            if (i != j && rects[j].width) {
-                if (rects[j].x >= rects[i].x && rects[j].x + rects[j].width <= rects[i].x + rects[i].width &&
+            if (!ci_reply) {
+                fprintf(stderr, "Failed to get RandR ctrc info\n");
+                free(rres_reply);
+                return;
+            }
+
+            // There's no need to handle rotated screens here (see #69)
+            rects[i] = (xcb_rectangle_t){ ci_reply->x, ci_reply->y, ci_reply->width, ci_reply->height };
+
+            free(ci_reply);
+
+            valid++;
+        }
+
+        free(rres_reply);
+
+        // Check for clones and inactive outputs
+        for (i = 0; i < num; i++) {
+            if (rects[i].width == 0)
+                continue;
+
+            for (j = 0; j < num; j++) {
+                // Does I contain J ?
+
+                if (i != j && rects[j].width) {
+                    if (rects[j].x >= rects[i].x && rects[j].x + rects[j].width <= rects[i].x + rects[i].width &&
                         rects[j].y >= rects[i].y && rects[j].y + rects[j].height <= rects[i].y + rects[i].height) {
-                    rects[j].width = 0;
-                    valid--;
+                        rects[j].width = 0;
+                        valid--;
+                    }
                 }
             }
         }
+
+        if (valid < 1) {
+            fprintf(stderr, "No usable RandR output found\n");
+            return;
+        }
+
+        xcb_rectangle_t r[valid];
+
+        for (i = j = 0; i < num && j < valid; i++)
+            if (rects[i].width != 0)
+                r[j++] = rects[i];
+
+        monitorCreateChain(r, valid);
     }
-
-    if (valid < 1) {
-        fprintf(stderr, "No usable RandR output found\n");
-        return;
-    }
-
-    xcb_rectangle_t r[valid];
-
-    for (i = j = 0; i < num && j < valid; i++)
-        if (rects[i].width != 0)
-            r[j++] = rects[i];
-
-    monitorCreateChain(r, valid);
-}
 
 #ifdef WITH_XINERAMA
-void
-getXineramaMonitors (void)
-{
-    xcb_xinerama_query_screens_reply_t *xqs_reply;
-    xcb_xinerama_screen_info_iterator_t iter;
-    int screens;
+    void
+    getXineramaMonitors (void)
+    {
+        xcb_xinerama_query_screens_reply_t *xqs_reply;
+        xcb_xinerama_screen_info_iterator_t iter;
+        int screens;
 
-    xqs_reply = xcb_xinerama_query_screens_reply(c,
-                xcb_xinerama_query_screens_unchecked(c), NULL);
+        xqs_reply = xcb_xinerama_query_screens_reply(c,
+                                                     xcb_xinerama_query_screens_unchecked(c), NULL);
 
-    iter = xcb_xinerama_query_screens_screen_info_iterator(xqs_reply);
-    screens = iter.rem;
+        iter = xcb_xinerama_query_screens_screen_info_iterator(xqs_reply);
+        screens = iter.rem;
 
-    xcb_rectangle_t rects[screens];
+        xcb_rectangle_t rects[screens];
 
-    // Fetch all the screens first
-    for (int i = 0; iter.rem; i++) {
-        rects[i].x = iter.data->x_org;
-        rects[i].y = iter.data->y_org;
-        rects[i].width = iter.data->width;
-        rects[i].height = iter.data->height;
-        xcb_xinerama_screen_info_next(&iter);
+        // Fetch all the screens first
+        for (int i = 0; iter.rem; i++) {
+            rects[i].x = iter.data->x_org;
+            rects[i].y = iter.data->y_org;
+            rects[i].width = iter.data->width;
+            rects[i].height = iter.data->height;
+            xcb_xinerama_screen_info_next(&iter);
+        }
+
+        free(xqs_reply);
+
+        monitorCreateChain(rects, screens);
     }
-
-    free(xqs_reply);
-
-    monitorCreateChain(rects, screens);
-}
 #endif
 
-xcb_visualid_t
-getVisual (void)
-{
+    xcb_visualid_t
+    getVisual (void)
+    {
 
-    XVisualInfo xv;
-    xv.depth = 32;
-    int result = 0;
-    XVisualInfo* result_ptr = NULL;
-    result_ptr = XGetVisualInfo(dpy, VisualDepthMask, &xv, &result);
+        XVisualInfo xv;
+        xv.depth = 32;
+        int result = 0;
+        XVisualInfo* result_ptr = NULL;
+        result_ptr = XGetVisualInfo(dpy, VisualDepthMask, &xv, &result);
 
-    if (result > 0) {
-        visualPtr = result_ptr->visual;
-        return result_ptr->visualid;
+        if (result > 0) {
+            visualPtr = result_ptr->visual;
+            return result_ptr->visualid;
+        }
+
+        //Fallback
+        visualPtr = DefaultVisual(dpy, scrNbr);
+        return scr->root_visual;
     }
 
-    //Fallback
-    visualPtr = DefaultVisual(dpy, scrNbr);
-    return scr->root_visual;
-}
+    // Parse an X-styled geometry string, we don't support signed offsets though.
+    bool
+    parseGeometryString (char *str, int *tmp)
+    {
+        char *p = str;
+        int i = 0, j;
 
-// Parse an X-styled geometry string, we don't support signed offsets though.
-bool
-parseGeometryString (char *str, int *tmp)
-{
-    char *p = str;
-    int i = 0, j;
-
-    if (!str || !str[0])
-        return false;
-
-    // The leading = is optional
-    if (*p == '=')
-        p++;
-
-    while (*p) {
-        // A geometry string has only 4 fields
-        if (i >= 4) {
-            fprintf(stderr, "Invalid geometry specified\n");
+        if (!str || !str[0])
             return false;
+
+        // The leading = is optional
+        if (*p == '=')
+            p++;
+
+        while (*p) {
+            // A geometry string has only 4 fields
+            if (i >= 4) {
+                fprintf(stderr, "Invalid geometry specified\n");
+                return false;
+            }
+            // Move on if we encounter a 'x' or '+'
+            if (*p == 'x') {
+                if (i > 0) // The 'x' must precede '+'
+                    break;
+                i++; p++; continue;
+            }
+            if (*p == '+') {
+                if (i < 1) // Stray '+', skip the first two fields
+                    i = 2;
+                else
+                    i++;
+                p++; continue;
+            }
+            // A digit must follow
+            if (!isdigit(*p)) {
+                fprintf(stderr, "Invalid geometry specified\n");
+                return false;
+            }
+            // Try to parse the number
+            errno = 0;
+            j = strtoul(p, &p, 10);
+            if (errno) {
+                fprintf(stderr, "Invalid geometry specified\n");
+                return false;
+            }
+            tmp[i] = j;
         }
-        // Move on if we encounter a 'x' or '+'
-        if (*p == 'x') {
-            if (i > 0) // The 'x' must precede '+'
-                break;
-            i++; p++; continue;
-        }
-        if (*p == '+') {
-            if (i < 1) // Stray '+', skip the first two fields
-                i = 2;
-            else
-                i++;
-            p++; continue;
-        }
-        // A digit must follow
-        if (!isdigit(*p)) {
-            fprintf(stderr, "Invalid geometry specified\n");
-            return false;
-        }
-        // Try to parse the number
-        errno = 0;
-        j = strtoul(p, &p, 10);
-        if (errno) {
-            fprintf(stderr, "Invalid geometry specified\n");
-            return false;
-        }
-        tmp[i] = j;
+
+        return true;
     }
 
-    return true;
-}
+    void
+    xconn (void)
+    {
+        fprintf(stderr, "[lemonbar] xconn: entering\n");
+        if ((dpy = XOpenDisplay(0)) == NULL) {
+            fprintf (stderr, "Couldnt open display\n");
+        }
+        fprintf(stderr, "[lemonbar] xconn: XOpenDisplay returned %p\n", (void*)dpy);
 
-void
-xconn (void)
-{
-    fprintf(stderr, "[lemonbar] xconn: entering\n");
-    if ((dpy = XOpenDisplay(0)) == NULL) {
-        fprintf (stderr, "Couldnt open display\n");
+        if ((c = XGetXCBConnection(dpy)) == NULL) {
+            fprintf (stderr, "Couldnt connect to X\n");
+            exit (EXIT_FAILURE);
+        }
+        fprintf(stderr, "[lemonbar] xconn: XGetXCBConnection returned %p\n", (void*)c);
+
+        XSetEventQueueOwner(dpy, XCBOwnsEventQueue);
+        fprintf(stderr, "[lemonbar] xconn: set event queue owner\n");
+
+        if (xcb_connection_has_error(c)) {
+            fprintf(stderr, "Couldn't connect to X\n");
+            exit(EXIT_FAILURE);
+        }
+        fprintf(stderr, "[lemonbar] xconn: xcb connection ok\n");
+
+        /* Grab infos from the first screen */
+        scr = xcb_setup_roots_iterator(xcb_get_setup(c)).data;
+        fprintf(stderr, "[lemonbar] xconn: got screen data\n");
+
+        /* Try to get a RGBA visual and build the colormap for that */
+        visual = getVisual();
+        colormap = xcb_generate_id(c);
+        xcb_create_colormap(c, XCB_COLORMAP_ALLOC_NONE, colormap, scr->root, visual);
+        fprintf(stderr, "[lemonbar] xconn: created colormap %u visual %u\n", colormap, visual);
     }
-    fprintf(stderr, "[lemonbar] xconn: XOpenDisplay returned %p\n", (void*)dpy);
 
-    if ((c = XGetXCBConnection(dpy)) == NULL) {
-        fprintf (stderr, "Couldnt connect to X\n");
-        exit (EXIT_FAILURE);
-    }
-    fprintf(stderr, "[lemonbar] xconn: XGetXCBConnection returned %p\n", (void*)c);
+    void
+    init (char *wm_name, char *wm_instance)
+    {
+        // Try to load a default font
+        if (!fontCount)
+            fontLoad("fixed");
 
-	XSetEventQueueOwner(dpy, XCBOwnsEventQueue);
-    fprintf(stderr, "[lemonbar] xconn: set event queue owner\n");
+        // We tried and failed hard, there's something wrong
+        if (!fontCount)
+            exit(EXIT_FAILURE);
 
-    if (xcb_connection_has_error(c)) {
-        fprintf(stderr, "Couldn't connect to X\n");
-        exit(EXIT_FAILURE);
-    }
-    fprintf(stderr, "[lemonbar] xconn: xcb connection ok\n");
+        // To make the alignment uniform, find maximum height
+        int maxh = fontList[0]->height;
+        for (int i = 1; i < fontCount; i++)
+            maxh = max(maxh, fontList[i]->height);
 
-    /* Grab infos from the first screen */
-    scr = xcb_setup_roots_iterator(xcb_get_setup(c)).data;
-    fprintf(stderr, "[lemonbar] xconn: got screen data\n");
+        // Set maximum height to all fonts
+        for (int i = 0; i < fontCount; i++)
+            fontList[i]->height = maxh;
 
-    /* Try to get a RGBA visual and build the colormap for that */
-	visual = getVisual();
-    colormap = xcb_generate_id(c);
-    xcb_create_colormap(c, XCB_COLORMAP_ALLOC_NONE, colormap, scr->root, visual);
-    fprintf(stderr, "[lemonbar] xconn: created colormap %u visual %u\n", colormap, visual);
-}
+        // Generate a list of screens
+        const xcb_query_extension_reply_t *qe_reply;
 
-void
-init (char *wm_name, char *wm_instance)
-{
-    // Try to load a default font
-    if (!fontCount)
-        fontLoad("fixed");
+        // Initialize monitor list head and tail
+        monhead = montail = NULL;
 
-    // We tried and failed hard, there's something wrong
-    if (!fontCount)
-        exit(EXIT_FAILURE);
+        // Check if RandR is present
+        qe_reply = xcb_get_extension_data(c, &xcb_randr_id);
 
-    // To make the alignment uniform, find maximum height
-    int maxh = fontList[0]->height;
-    for (int i = 1; i < fontCount; i++)
-        maxh = max(maxh, fontList[i]->height);
-
-    // Set maximum height to all fonts
-    for (int i = 0; i < fontCount; i++)
-        fontList[i]->height = maxh;
-
-    // Generate a list of screens
-    const xcb_query_extension_reply_t *qe_reply;
-
-    // Initialize monitor list head and tail
-    monhead = montail = NULL;
-
-    // Check if RandR is present
-    qe_reply = xcb_get_extension_data(c, &xcb_randr_id);
-
-    if (qe_reply && qe_reply->present) {
-        getRandrMonitors();
-    }
+        if (qe_reply && qe_reply->present) {
+            getRandrMonitors();
+        }
 #if WITH_XINERAMA
-    else {
-        qe_reply = xcb_get_extension_data(c, &xcb_xinerama_id);
+        else {
+            qe_reply = xcb_get_extension_data(c, &xcb_xinerama_id);
 
         // Check if Xinerama extension is present and active
         if (qe_reply && qe_reply->present) {
@@ -1516,110 +1516,110 @@ init (char *wm_name, char *wm_instance)
     }
 #endif
 
-    if (!monhead) {
-        fprintf(stderr, "[init] Creating fallback monitor: bw=%d, bh=%d, bx=%d, by=%d, screen_width=%d, screen_height=%d, maxh=%d\n",
-                bw, bh, bx, by, scr->width_in_pixels, scr->height_in_pixels, maxh);
+        if (!monhead) {
+            fprintf(stderr, "[init] Creating fallback monitor: bw=%d, bh=%d, bx=%d, by=%d, screen_width=%d, screen_height=%d, maxh=%d\n",
+                    bw, bh, bx, by, scr->width_in_pixels, scr->height_in_pixels, maxh);
 
-        // If I fits I sits
-        if (bw < 0)
-            bw = scr->width_in_pixels - bx;
+            // If I fits I sits
+            if (bw < 0)
+                bw = scr->width_in_pixels - bx;
 
-        // Adjust the height
-        if (bh < 0 || bh > scr->height_in_pixels)
-            bh = maxh + bu + 2;
+            // Adjust the height
+            if (bh < 0 || bh > scr->height_in_pixels)
+                bh = maxh + bu + 2;
 
-        fprintf(stderr, "[init] After adjustment: bw=%d, bh=%d\n", bw, bh);
+            fprintf(stderr, "[init] After adjustment: bw=%d, bh=%d\n", bw, bh);
 
-        // Check the geometry
-        if (bx + bw > scr->width_in_pixels || by + bh > scr->height_in_pixels) {
-            fprintf(stderr, "The geometry specified doesn't fit the screen!\n");
+            // Check the geometry
+            if (bx + bw > scr->width_in_pixels || by + bh > scr->height_in_pixels) {
+                fprintf(stderr, "The geometry specified doesn't fit the screen!\n");
+                exit(EXIT_FAILURE);
+            }
+
+            // If no RandR outputs or Xinerama screens, fall back to using whole screen
+            monhead = monitorNew(0, 0, bw, scr->height_in_pixels);
+            fprintf(stderr, "[init] Created monitor: monhead=%p\n", (void*)monhead);
+        }
+
+        if (!monhead)
             exit(EXIT_FAILURE);
+
+        // For WM that support EWMH atoms
+        setEwmhAtoms();
+
+        // Create the gc for drawing
+        gc[GC_DRAW] = xcb_generate_id(c);
+        xcb_create_gc(c, gc[GC_DRAW], monhead->pixmap, XCB_GC_FOREGROUND, (const uint32_t []){ foregroundColor.v });
+
+        gc[GC_CLEAR] = xcb_generate_id(c);
+        xcb_create_gc(c, gc[GC_CLEAR], monhead->pixmap, XCB_GC_FOREGROUND, (const uint32_t []){ backgroundColor.v });
+
+        gc[GC_ATTR] = xcb_generate_id(c);
+        xcb_create_gc(c, gc[GC_ATTR], monhead->pixmap, XCB_GC_FOREGROUND, (const uint32_t []){ underlineColor.v });
+
+        // Make the bar visible and clear the pixmap
+        for (monitor_t *mon = monhead; mon; mon = mon->next) {
+            fillRect(mon->pixmap, gc[GC_CLEAR], 0, 0, mon->width, bh);
+            xcb_map_window(c, mon->window);
+
+            // Make sure that the window really gets in the place it's supposed to be
+            // Some WM such as Openbox need this
+            xcb_configure_window(c, mon->window, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, (const uint32_t []){ (uint32_t)mon->x, (uint32_t)mon->y });
+
+            // Set the WM_NAME atom to the user specified value
+            if (wm_name)
+                xcb_change_property(c, XCB_PROP_MODE_REPLACE, mon->window, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8 ,strlen(wm_name), wm_name);
+
+            // set the WM_CLASS atom instance to the executable name
+            if (wm_instance) {
+                char *wm_class;
+                int wm_class_offset, wm_class_len;
+
+                // WM_CLASS is nullbyte seperated: wm_instance + "\0Bar\0"
+                wm_class_offset = strlen(wm_instance) + 1;
+                wm_class_len = wm_class_offset + 4;
+
+                wm_class = static_cast<char *>(calloc(1, wm_class_len + 1));
+                strcpy(wm_class, wm_instance);
+                strcpy(wm_class+wm_class_offset, "Bar");
+
+                xcb_change_property(c, XCB_PROP_MODE_REPLACE, mon->window, XCB_ATOM_WM_CLASS, XCB_ATOM_STRING, 8, wm_class_len, wm_class);
+
+                free(wm_class);
+            }
         }
 
-        // If no RandR outputs or Xinerama screens, fall back to using whole screen
-        monhead = monitorNew(0, 0, bw, scr->height_in_pixels);
-        fprintf(stderr, "[init] Created monitor: monhead=%p\n", (void*)monhead);
-    }
+        char color[] = "#ffffff";
+        uint32_t nfgc = foregroundColor.v & 0x00ffffff;
+        snprintf(color, sizeof(color), "#%06X", nfgc);
 
-    if (!monhead)
-        exit(EXIT_FAILURE);
-
-    // For WM that support EWMH atoms
-    setEwmhAtoms();
-
-    // Create the gc for drawing
-    gc[GC_DRAW] = xcb_generate_id(c);
-    xcb_create_gc(c, gc[GC_DRAW], monhead->pixmap, XCB_GC_FOREGROUND, (const uint32_t []){ foregroundColor.v });
-
-    gc[GC_CLEAR] = xcb_generate_id(c);
-    xcb_create_gc(c, gc[GC_CLEAR], monhead->pixmap, XCB_GC_FOREGROUND, (const uint32_t []){ backgroundColor.v });
-
-    gc[GC_ATTR] = xcb_generate_id(c);
-    xcb_create_gc(c, gc[GC_ATTR], monhead->pixmap, XCB_GC_FOREGROUND, (const uint32_t []){ underlineColor.v });
-
-    // Make the bar visible and clear the pixmap
-    for (monitor_t *mon = monhead; mon; mon = mon->next) {
-        fillRect(mon->pixmap, gc[GC_CLEAR], 0, 0, mon->width, bh);
-        xcb_map_window(c, mon->window);
-
-        // Make sure that the window really gets in the place it's supposed to be
-        // Some WM such as Openbox need this
-        xcb_configure_window(c, mon->window, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, (const uint32_t []){ (uint32_t)mon->x, (uint32_t)mon->y });
-
-        // Set the WM_NAME atom to the user specified value
-        if (wm_name)
-            xcb_change_property(c, XCB_PROP_MODE_REPLACE, mon->window, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8 ,strlen(wm_name), wm_name);
-
-        // set the WM_CLASS atom instance to the executable name
-        if (wm_instance) {
-            char *wm_class;
-            int wm_class_offset, wm_class_len;
-
-            // WM_CLASS is nullbyte seperated: wm_instance + "\0Bar\0"
-            wm_class_offset = strlen(wm_instance) + 1;
-            wm_class_len = wm_class_offset + 4;
-
-            wm_class = static_cast<char *>(calloc(1, wm_class_len + 1));
-            strcpy(wm_class, wm_instance);
-            strcpy(wm_class+wm_class_offset, "Bar");
-
-            xcb_change_property(c, XCB_PROP_MODE_REPLACE, mon->window, XCB_ATOM_WM_CLASS, XCB_ATOM_STRING, 8, wm_class_len, wm_class);
-
-            free(wm_class);
+        if (!XftColorAllocName (dpy, visualPtr, colormap, color, &selFg)) {
+            fprintf(stderr, "Couldn't allocate xft font color '%s'\n", color);
         }
+        xcb_flush(c);
     }
 
-    char color[] = "#ffffff";
-    uint32_t nfgc = foregroundColor.v & 0x00ffffff;
-    snprintf(color, sizeof(color), "#%06X", nfgc);
+    char*
+    strip_path(char *path)
+    {
+        char *slash;
 
-    if (!XftColorAllocName (dpy, visualPtr, colormap, color, &selFg)) {
-        fprintf(stderr, "Couldn't allocate xft font color '%s'\n", color);
+        if (path == NULL || *path == '\0')
+            return strdup("lemonbar");
+
+        slash = strrchr(path, '/');
+        if (slash != NULL)
+            return strndup(slash + 1, 31);
+
+        return strndup(path, 31);
     }
-    xcb_flush(c);
-}
 
-char*
-strip_path(char *path)
-{
-    char *slash;
-
-    if (path == NULL || *path == '\0')
-        return strdup("lemonbar");
-
-    slash = strrchr(path, '/');
-    if (slash != NULL)
-        return strndup(slash + 1, 31);
-
-    return strndup(path, 31);
-}
-
-static void
-sighandle (int signal)
-{
-    if (signal == SIGINT || signal == SIGTERM)
-        exit(EXIT_SUCCESS);
-}
+    static void
+    sighandle (int signal)
+    {
+        if (signal == SIGINT || signal == SIGTERM)
+            exit(EXIT_SUCCESS);
+    }
 
     ~Bar() {
         for (int i = 0; fontList[i]; i++) {
