@@ -3,9 +3,8 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
-#include <sstream>
-#include <iomanip>
+#include <time.h>
+#include <string>
 #include "module.h"
 #include "../helper.h"
 #include "../notifyManeger.h"
@@ -14,114 +13,113 @@ class BatteryModule : public Module {
 public:
   BatteryModule() : Module("battery", false, 5) {
     iconElement.moduleName = name;
-    elements.push_back(&iconElement);
-
     textElement.moduleName = name;
+    elements.push_back(&iconElement);
     elements.push_back(&textElement);
   }
 
   void update() override {
-    updateBatteryInfo();
-    checkBatteryAlert(); // Nueva función de chequeo
+    if (readBatteryState()) {
+      updateVisuals();
+      checkBatteryAlert();
+    }
+    lastUpdate = time(nullptr);
   }
 
 private:
-  BarElement iconElement;
-  BarElement textElement;
+  BarElement iconElement, textElement;
   long energyNow = 0, energyFull = 0, powerNow = 0;
   char status[32] = "Unknown";
-  float percentage = 0.0;
-  bool notificationSent = false; // Flag para no spamear notificaciones
+  float percentage = 0.0f;
+  bool notificationSent = false;
 
-  void checkBatteryAlert() {
-    // Si la batería es < 20%, no está cargando y no hemos enviado notificación aún
-    if (
-      (
-        percentage < 20.0f ||
-        percentage < 15.0f ||
-        percentage < 10.0f ||
-        percentage < 5.0f
-      ) && strcmp(status, "Charging") != 0 && !notificationSent
-    ) {
+  bool readBatteryState() {
+    energyNow  = readLong("energy_now", "charge_now");
+    energyFull = readLong("energy_full", "charge_full");
+    powerNow   = readLong("power_now", "current_now");
 
-      NotifyManager::instance().send(
-        "󰂃 Batería Crítica",
-        "Nivel actual: <b>" + std::to_string((int)percentage) + "%</b>\n<b>Conecta el cargador de inmediato.</b>",
-        NOTIFY_URGENCY_CRITICAL
-      );
-      notificationSent = true;
+    FILE* f = fopen("/sys/class/power_supply/BAT0/status", "r");
+    if (f) {
+      if (fscanf(f, "%31s", status) != 1) strcpy(status, "Unknown");
+      fclose(f);
     }
 
-    // Resetear el flag si la batería sube del 25% o se pone a cargar
-    // (Usamos 25% para evitar que la notificación salte repetidamente si oscila en 20%)
-    if (percentage > 25.0f || strcmp(status, "Charging") == 0) {
-      notificationSent = false;
+    if (energyFull > 0) {
+      percentage = ((float)energyNow / (float)energyFull) * 100.0f;
+      return true;
     }
+    return false;
   }
 
-  void updateBatteryInfo() {
-    energyNow = energyFull = powerNow = 0;
-    strcpy(status, "Unknown");
-    percentage = 0.0;
+  void updateVisuals() {
+    bool isCharging = (strcmp(status, "Charging") == 0);
 
-    FILE *f_now = fopen("/sys/class/power_supply/BAT0/energy_now", "r");
-    if (!f_now) f_now = fopen("/sys/class/power_supply/BAT0/charge_now", "r");
+    // 1. Contenido
+    snprintf(iconElement.content, CONTENT_MAX_LEN, "%s ", Helper::getBatteryIcon(percentage, isCharging));
 
-    FILE *f_full = fopen("/sys/class/power_supply/BAT0/energy_full", "r");
-    if (!f_full) f_full = fopen("/sys/class/power_supply/BAT0/charge_full", "r");
-
-    FILE *f_pow = fopen("/sys/class/power_supply/BAT0/power_now", "r");
-    if (!f_pow) f_pow = fopen("/sys/class/power_supply/BAT0/current_now", "r");
-
-    FILE *f_stat = fopen("/sys/class/power_supply/BAT0/status", "r");
-
-    if (f_now && f_full) {
-      fscanf(f_now, "%ld", &energyNow);
-      fscanf(f_full, "%ld", &energyFull);
-      if (energyFull > 0) percentage = ((float)energyNow / (float)energyFull) * 100.0;
-      fclose(f_now); fclose(f_full);
-    }
-    if (f_pow) { fscanf(f_pow, "%ld", &powerNow); fclose(f_pow); }
-    if (f_stat) { fscanf(f_stat, "%s", status); fclose(f_stat); }
-
-    const char* icon = Helper::getBatteryIcon(percentage, strcmp(status, "Charging") == 0);
-
-    // Actualización de elementos visuales (acortado para brevedad)
-    if (powerNow > 0 && (strcmp(status, "Discharging") == 0 || strcmp(status, "Charging") == 0)) {
-      float timeFloat = (strcmp(status, "Discharging") == 0) ? (float)energyNow / powerNow : (float)(energyFull - energyNow) / powerNow;
-      int hours = (int)timeFloat;
-      int minutes = (int)((timeFloat - hours) * 60);
-
-      snprintf(iconElement.content, CONTENT_MAX_LEN, "%s ", icon);
-      snprintf(textElement.content, CONTENT_MAX_LEN, "%.1f%% %02d:%02d", percentage, hours, minutes);
+    if (powerNow > 0 && (isCharging || strcmp(status, "Discharging") == 0)) {
+      float timeFloat = isCharging ? (float)(energyFull - energyNow) / powerNow
+        : (float)energyNow / powerNow;
+      int h = (int)timeFloat;
+      int m = (int)((timeFloat - h) * 60);
+      snprintf(textElement.content, CONTENT_MAX_LEN, "%.1f%% %02d:%02d", percentage, h, m);
     } else {
-      snprintf(iconElement.content, CONTENT_MAX_LEN, "%s", icon);
       snprintf(textElement.content, CONTENT_MAX_LEN, "%.1f%%", percentage);
+    }
+
+    // 2. Colores (Respetando tus llamadas originales a parse_color)
+    // Texto: Púrpura por defecto, Rojo si es crítico y no carga
+    if (percentage < 20.0f && !isCharging) {
+      textElement.foregroundColor = Color::parse_color("#FF0000", NULL, Color(255, 0, 0, 255));
+    } else {
+      textElement.foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
+    }
+
+    // Icono: Lógica de carga original con stringstream eliminada para ganar velocidad
+    if (isCharging) {
+      if (percentage >= 90.0f) {
+        // Verde
+        iconElement.foregroundColor = Color::parse_color("#00FF00", NULL, Color(0, 255, 0, 255));
+      } else if (percentage >= 20.0f) {
+        // Naranja (255, 165, 0) -> #FFA500
+        iconElement.foregroundColor = Color::parse_color("#FFA500", NULL, Color(255, 165, 0, 255));
+      } else {
+        // Rojo
+        iconElement.foregroundColor = Color::parse_color("#FF0000", NULL, Color(255, 0, 0, 255));
+      }
+    } else {
+      // No carga -> Púrpura
+      iconElement.foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
     }
 
     iconElement.dirtyContent = true;
     textElement.dirtyContent = true;
-    updateColors();
-    lastUpdate = time(nullptr);
   }
 
-  void updateColors() {
-    textElement.foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
-
-    if (strcmp(status, "Charging") == 0) {
-      int r = (percentage >= 90) ? 0 : 255;
-      int g = (percentage >= 90) ? 255 : (percentage >= 20 ? 165 : 0);
-      int b = 0;
-      std::stringstream ss;
-      ss << "#" << std::hex << std::setfill('0') << std::setw(2) << r << std::setw(2) << g << std::setw(2) << b;
-      iconElement.foregroundColor = Color::parse_color(ss.str().c_str(), NULL, Color(r, g, b, 255));
-    } else {
-      iconElement.foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
+  void checkBatteryAlert() {
+    if (percentage < 20.0f && strcmp(status, "Charging") != 0 && !notificationSent) {
+      std::string msg = "Nivel actual: <b>" + std::to_string((int)percentage) + "%</b>\n<b>Conecta el cargador de inmediato.</b>";
+      NotifyManager::instance().send("󰂃 Batería Crítica", msg, NOTIFY_URGENCY_CRITICAL);
+      notificationSent = true;
+    } else if (percentage > 25.0f || strcmp(status, "Charging") == 0) {
+      notificationSent = false;
     }
+  }
 
-    if (percentage < 20 && strcmp(status, "Charging") != 0) {
-      textElement.foregroundColor = Color::parse_color("#FF0000", NULL, Color(255, 0, 0, 255));
+  long readLong(const char* f1, const char* f2) {
+    char path[64];
+    long val = 0;
+    snprintf(path, sizeof(path), "/sys/class/power_supply/BAT0/%s", f1);
+    FILE* f = fopen(path, "r");
+    if (!f && f2) {
+      snprintf(path, sizeof(path), "/sys/class/power_supply/BAT0/%s", f2);
+      f = fopen(path, "r");
     }
+    if (f) {
+      fscanf(f, "%ld", &val);
+      fclose(f);
+    }
+    return val;
   }
 };
 
