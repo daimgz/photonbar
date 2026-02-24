@@ -196,8 +196,8 @@ private:
     void updateElement() {
         const char* icon = getIcon(currentSink.name);
         if (currentSink.isBluetooth && currentSink.batteryLevel >= 0) {
-            baseElement.contentLen = snprintf(baseElement.content, CONTENT_MAX_LEN, "%s %d%% 🔋%s",
-                icon, currentSink.volume, Helper::getBatteryIcon(currentSink.batteryLevel));
+            baseElement.contentLen = snprintf(baseElement.content, CONTENT_MAX_LEN, "%s %s %d%%",
+                Helper::getBatteryIcon(currentSink.batteryLevel), icon, currentSink.volume);
         } else {
             baseElement.contentLen = snprintf(baseElement.content, CONTENT_MAX_LEN, "%s %d%%",
                 icon, currentSink.volume);
