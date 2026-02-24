@@ -36,6 +36,7 @@
 #include "modules/timer.h"
 #include "modules/weather.h"
 #include "modules/space.h"
+#include "modules/notifications.h"
 #include "process_manager.h"
 #include "bar.h"
 
@@ -338,6 +339,7 @@ int main(int argc, char* argv[]) {
   static BatteryModule battery_top;
   static DateTimeModule datetime_top;
   static WeatherModule weather_top;
+  static NotificationsModule notifications_top;
 
   // Módulos para barra inferior
   static PingModule ping_bottom;
@@ -355,6 +357,7 @@ int main(int argc, char* argv[]) {
     std::vector<Module*> rightModules;
     rightModules.push_back(&audio_top);
     rightModules.push_back(&battery_top);
+    rightModules.push_back(&notifications_top);
     rightModules.push_back(&weather_top);
     rightModules.push_back(&datetime_top);
 
