@@ -208,12 +208,11 @@ private:
   const std::vector<Module*> rightModules;
   const bool isTop;
 
-  // Variables del scheduler migradas
+  // State
   bool any_updated = false;
-
   int xcb_fd;
   Bar* bar;
-  WorkspaceModule* workspace;
+  WorkspaceModule* workspace = nullptr;
 
   // Eliminados handlers estáticos duplicados - ahora usa lambda con captura this
 

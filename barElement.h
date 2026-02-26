@@ -18,60 +18,60 @@ typedef std::function<void()> EventFunction;
 
 struct BarElement {
 
-    enum EventType {
-        CLICK_LEFT = 1,
-        CLICK_MIDDLE = 2,
-        CLICK_RIGHT = 3,
-        SCROLL_UP = 4,
-        SCROLL_DOWN = 5
-    };
+  enum EventType {
+    CLICK_LEFT = 1,
+    CLICK_MIDDLE = 2,
+    CLICK_RIGHT = 3,
+    SCROLL_UP = 4,
+    SCROLL_DOWN = 5
+  };
 
 
-    // --- Datos de texto (owned) ---
+  // --- Datos de texto (owned) ---
   //private:
-    char content[CONTENT_MAX_LEN];
-    uint32_t ucsContent[CONTENT_MAX_LEN];
-    uint8_t  ucsContentCharWidths[CONTENT_MAX_LEN];
-    bool dirtyContent;
-    uint8_t contentLen;
-    uint8_t ucsContentLen;
+  char content[CONTENT_MAX_LEN];
+  uint32_t ucsContent[CONTENT_MAX_LEN];
+  uint8_t  ucsContentCharWidths[CONTENT_MAX_LEN];
+  bool dirtyContent;
+  int contentLen;
+  int ucsContentLen;
 
-    // --- Datos de posición (calculados) ---
-    uint16_t beginX;
-    uint16_t width;
-
-
-    // --- Datos de color ---
-    // TODO: esto debe estar acá, pero se debe poder forzar en modula
-    Color foregroundColor;
-    Color backgroundColor;
-    Color underlineColor;
-
-    // --- Manejo de eventos múltiples ---
-    std::map<EventType, EventFunction> events;
-    std::string moduleName;
-
-    // --- Datos de formato ---
-    int offsetPixels;
-
-    // --- Estados y atributos ---
-    bool underline;
-    bool overline;
-    bool reverseColors;     // para comando %R
-    bool isActive;          // para áreas clickeables abiertas/cerradas
-
-    // --- Métodos eficientes para manejo de eventos ---
-    inline void setEvent(EventType type, std::function<void()> handler) {
-        events[type] = handler;
-    }
-    bool eventCharged;
+  // --- Datos de posición (calculados) ---
+  uint16_t beginX;
+  uint16_t width;
 
 
-    // Constructor por defecto con valores inicializados
-    BarElement() : content(""), dirtyContent(false), contentLen(0),
-                   beginX(0), width(0),
-                   offsetPixels(0), underline(false), overline(false),
-                   reverseColors(false), isActive(false), eventCharged(false) {}
+  // --- Datos de color ---
+  // TODO: esto debe estar acá, pero se debe poder forzar en modula
+  Color foregroundColor;
+  Color backgroundColor;
+  Color underlineColor;
+
+  // --- Manejo de eventos múltiples ---
+  std::map<EventType, EventFunction> events;
+  std::string moduleName;
+
+  // --- Datos de formato ---
+  int offsetPixels;
+
+  // --- Estados y atributos ---
+  bool underline;
+  bool overline;
+  bool reverseColors;     // para comando %R
+  bool isActive;          // para áreas clickeables abiertas/cerradas
+
+  // --- Métodos eficientes para manejo de eventos ---
+  inline void setEvent(EventType type, std::function<void()> handler) {
+    events[type] = handler;
+  }
+  bool eventCharged;
+
+
+  // Constructor por defecto con valores inicializados
+  BarElement() : content(""), dirtyContent(false), contentLen(0), ucsContentLen(0),
+    beginX(0), width(0),
+    offsetPixels(0), underline(false), overline(false),
+    reverseColors(false), isActive(false), eventCharged(false) {}
 
 };
 

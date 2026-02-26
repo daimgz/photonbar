@@ -651,7 +651,7 @@ public:
         uint8_t char_width = 0;
         int total_width = 0;
 
-        for (uint8_t i = 0;; i++) {
+        for (int i = 0; i < CONTENT_MAX_LEN; i++) {
             if (*p == '\0' || *p == '\n') {
                 element->ucsContent[i] = '\0';
                 element->ucsContentLen = i;
@@ -929,7 +929,6 @@ public:
 
     void parseModules() {
         // === INICIALIZACIÓN ===
-        fprintf(stderr, "[parseModules] monhead=%p\n", (void*)monhead);
         monitor_t* cur_mon = monhead;
 
         // === LIMPIEZA DE MONITORES ===
@@ -961,7 +960,6 @@ public:
             xcb_copy_area(c, mon->pixmap, mon->window, gc[GC_DRAW], 0, 0, 0, 0, mon->width, bh);
         }
         xcb_flush(c);
-        fprintf(stderr, "[lemonbar] lemonbar_feed: flush complete\n");
     }
 
     int getXcbFd(void) {
