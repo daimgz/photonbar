@@ -8,6 +8,7 @@
 #include <pulse/error.h>
 #include <vector>
 #include <string>
+#include "../color_cache.h"
 #include <algorithm>
 #include <cmath>
 #include <chrono> // Necesario para el control de tiempo
@@ -205,8 +206,7 @@ private:
         baseElement.content[baseElement.contentLen] = '\0';
         baseElement.dirtyContent = true;
         baseElement.foregroundColor = currentSink.isMuted ?
-            Color::parse_color("#FF6B6B", NULL, Color(255, 107, 107, 255)) :
-            Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
+            ColorCache::lightRed() : ColorCache::purple();
     }
 
     const char* getIcon(const std::string& name) {

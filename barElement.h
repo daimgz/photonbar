@@ -32,6 +32,7 @@ struct BarElement {
   char content[CONTENT_MAX_LEN];
   uint32_t ucsContent[CONTENT_MAX_LEN];
   uint8_t  ucsContentCharWidths[CONTENT_MAX_LEN];
+  void*    ucsContentFonts[CONTENT_MAX_LEN];  // cached font pointers
   bool dirtyContent;
   int contentLen;
   int ucsContentLen;

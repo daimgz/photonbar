@@ -29,11 +29,10 @@ CFDEBUG = -g3 -pedantic -Wall -Wunused-parameter -Wlong-long \
 
 # Ejecutable y archivos
 EXEC = photonbar
-SRCS = main.cpp process_manager.cpp bar.cpp
-OBJS = build/main.o build/process_manager.o build/bar.o
+SRCS = main.cpp process_manager.cpp bar.cpp bar_manager.cpp i3ipc_impl.cpp font_manager.cpp multi_bar_manager.cpp
+OBJS = build/main.o build/process_manager.o build/bar.o build/bar_manager.o build/i3ipc_impl.o build/font_manager.o build/multi_bar_manager.o
 
-# Dependencias de headers locales
-HEADERS = bar.h modules/datetime.h modules/battery.h modules/audio.h modules/workspace.h modules/resources.h modules/i3ipc.h modules/module.h modules/weather.h modules/space.h modules/notifications.h process_manager.h
+HEADERS = bar.h bar_types.h modules/datetime.h modules/battery.h modules/audio.h modules/workspace.h modules/resources.h modules/i3ipc.h modules/module.h modules/weather.h modules/space.h modules/notifications.h process_manager.h bar_manager.h config.h font_manager.h multi_bar_manager.h
 
 PREFIX ?= /usr/local
 BINDIR = ${PREFIX}/bin
@@ -52,6 +51,18 @@ build/process_manager.o: process_manager.cpp process_manager.h
 	${CC} ${CXXFLAGS} -o $@ -c $<
 
 build/bar.o: bar.cpp bar.h
+	${CC} ${CXXFLAGS} -o $@ -c $<
+
+build/bar_manager.o: bar_manager.cpp bar_manager.h config.h
+	${CC} ${CXXFLAGS} -o $@ -c $<
+
+build/i3ipc_impl.o: i3ipc_impl.cpp
+	${CC} ${CXXFLAGS} -o $@ -c $<
+
+build/font_manager.o: font_manager.cpp font_manager.h bar_types.h
+	${CC} ${CXXFLAGS} -o $@ -c $<
+
+build/multi_bar_manager.o: multi_bar_manager.cpp multi_bar_manager.h bar.h config.h
 	${CC} ${CXXFLAGS} -o $@ -c $<
 
 ${EXEC}: ${OBJS} ${HEADERS}

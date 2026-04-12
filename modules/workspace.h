@@ -12,9 +12,9 @@
 #include <vector>
 #include <string>
 
-#define I3IPC_IMPLEMENTATION
 #include "i3ipc.h"
 #include "module.h"
+#include "../color_cache.h"
 
 class WorkspaceModule : public Module {
   public:
@@ -74,11 +74,11 @@ class WorkspaceModule : public Module {
         
         // Set styling
         if (reply->workspaces[i].focused) {
-          element->foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(0xFF, 0xAA, 0xFF, 255));
-          element->underlineColor = Color::parse_color("#E0AAFF", NULL, Color(0xFF, 0xAA, 0xFF, 255));
+          element->foregroundColor = ColorCache::purple();
+          element->underlineColor = ColorCache::purple();
           element->underline = true;
         } else {
-          element->foregroundColor = Color::parse_color("#666666", NULL, Color(0x66, 0x66, 0x66, 255));
+          element->foregroundColor = ColorCache::gray();
           element->underline = false;
         }
         
@@ -113,11 +113,11 @@ class WorkspaceModule : public Module {
         
         // Update styling
         if (reply->workspaces[i].focused) {
-          element->foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(0xFF, 0xAA, 0xFF, 255));
-          element->underlineColor = Color::parse_color("#E0AAFF", NULL, Color(0xFF, 0xAA, 0xFF, 255));
+          element->foregroundColor = ColorCache::purple();
+          element->underlineColor = ColorCache::purple();
           element->underline = true;
         } else {
-          element->foregroundColor = Color::parse_color("#666666", NULL, Color(0x66, 0x66, 0x66, 255));
+          element->foregroundColor = ColorCache::gray();
           element->underline = false;
         }
       }

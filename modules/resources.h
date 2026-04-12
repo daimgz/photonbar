@@ -11,6 +11,7 @@
 #include "module.h"
 #include "../barElement.h"
 #include "../color.h"
+#include "../color_cache.h"
 
 class ResourcesModule : public Module {
   private:
@@ -44,9 +45,8 @@ class ResourcesModule : public Module {
 
   public:
     ResourcesModule() : Module("resources", false, 2) {
-      // ---- cachear colores (MUY importante) ----
-      colorNormal = Color::parse_color("#E0AAFF", nullptr, Color(224,170,255,255));
-      colorAlert  = Color::parse_color("#FF6B6B", nullptr, Color(255,107,107,255));
+      colorNormal = ColorCache::purple();
+      colorAlert  = ColorCache::lightRed();
 
       // ---- RAM ----
       ramElement.moduleName = name;

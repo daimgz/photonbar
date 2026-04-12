@@ -20,6 +20,7 @@ private:
     
     const char* getLockFilePath();
     bool isProcessRunning(pid_t pid);
+    pid_t findRunningProcess();
     pid_t readLockFile();
     bool writeLockFile(pid_t pid);
     void removeLockFile();

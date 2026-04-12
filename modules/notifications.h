@@ -4,14 +4,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cstring>
+#include <chrono>
 #include "module.h"
 #include "../barElement.h"
+#include "../color_cache.h"
 
 class NotificationsModule : public Module {
 private:
     BarElement element;
     bool isPaused = false;
     int waitingCount = 0;
+
+    std::chrono::steady_clock::time_point lastStateUpdate;
+    static constexpr int CACHE_DURATION_SECONDS = 30;
 
     void updateState() {
         FILE* f = popen("dunstctl is-paused", "r");
@@ -29,6 +34,8 @@ private:
             waitingCount = atoi(buf);
             pclose(f);
         }
+
+        lastStateUpdate = std::chrono::steady_clock::now();
     }
 
     void toggleNotifications() {
@@ -44,17 +51,24 @@ private:
             } else {
                 snprintf(element.content, CONTENT_MAX_LEN, u8"\U000f009b");
             }
-            element.foregroundColor = Color::parse_color("#FF6B6B", NULL, Color(255, 107, 107, 255));
+            element.foregroundColor = ColorCache::lightRed();
         } else {
             snprintf(element.content, CONTENT_MAX_LEN, u8"\U000f009c");
-            element.foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
+            element.foregroundColor = ColorCache::purple();
         }
         element.dirtyContent = true;
     }
 
+    bool needsUpdate() {
+        auto now = std::chrono::steady_clock::now();
+        int elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastStateUpdate).count();
+        return elapsed >= CACHE_DURATION_SECONDS;
+    }
+
 public:
-    NotificationsModule() : Module("notifications", false, 0) {
+    NotificationsModule() : Module("notifications", false, 5) {
         element.moduleName = name;
+        lastStateUpdate = std::chrono::steady_clock::now();
 
         element.setEvent(BarElement::CLICK_LEFT, [this]() {
             toggleNotifications();
@@ -73,7 +87,9 @@ public:
     }
 
     void update() override {
-        updateState();
+        if (needsUpdate()) {
+            updateState();
+        }
         updateVisuals();
     }
 };

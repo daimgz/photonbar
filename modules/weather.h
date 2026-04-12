@@ -13,6 +13,7 @@ using namespace std;
 #include "module.h"
 #include <fmt/format.h>
 #include "../barElement.h"
+#include "../color_cache.h"
 
 class WeatherModule : public Module {
   private:
@@ -25,6 +26,7 @@ class WeatherModule : public Module {
 
     // Estado del clima
     time_t lastApiCall;
+    bool lastApiCallFailed;
     double temperature;
     double feelsLike;
     int humidity;
@@ -71,6 +73,7 @@ class WeatherModule : public Module {
       lat(-34.4476799),    // Del Viso, Pilar, Buenos Aires
       lon(-58.8052387),    // Del Viso, Pilar, Buenos Aires
       lastApiCall(0),
+      lastApiCallFailed(false),
       temperature(0.0),
       feelsLike(0.0),
       humidity(0),
@@ -98,7 +101,7 @@ class WeatherModule : public Module {
       });
 
       // Color base del texto
-      baseElement.foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
+      baseElement.foregroundColor = ColorCache::purple();
 
       elements.push_back(&baseElement);
     }
@@ -149,14 +152,20 @@ class WeatherModule : public Module {
     void update() override {
       time_t now = time(nullptr);
 
-      // Asegurar que el handle esté inicializado
       if (!curl_handle) {
         initializeCurlHandle();
       }
 
-      // Solo llamar a la API si han pasado 10 minutos
-      if (fetchWeatherData()) {
-        lastApiCall = now;
+      bool needsUpdate = (now - lastApiCall) >= secondsPerUpdate;
+      bool shouldRetry = (lastApiCall == 0) || ((now - lastApiCall) >= 60 && lastApiCallFailed);
+
+      if (needsUpdate || shouldRetry) {
+        if (fetchWeatherData()) {
+          lastApiCall = now;
+          lastApiCallFailed = false;
+        } else {
+          lastApiCallFailed = true;
+        }
       }
 
       generateBuffer();
@@ -333,13 +342,13 @@ class WeatherModule : public Module {
       // Cambiar color según estado
       if (temperature > 30) {
         // Muy caliente - rojo
-        baseElement.foregroundColor = Color::parse_color("#FF6B6B", NULL, Color(255, 107, 107, 255));
+        baseElement.foregroundColor = ColorCache::lightRed();
       } else if (temperature < 5) {
         // Muy frío - azul
-        baseElement.foregroundColor = Color::parse_color("#6BB6FF", NULL, Color(107, 182, 255, 255));
+        baseElement.foregroundColor = ColorCache::blue();
       } else {
         // Normal - color por defecto
-        baseElement.foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
+        baseElement.foregroundColor = ColorCache::purple();
       }
     }
 };

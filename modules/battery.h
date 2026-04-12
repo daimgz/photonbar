@@ -7,6 +7,7 @@
 #include "module.h"
 #include "../helper.h"
 #include "../notifyManeger.h"
+#include "../color_cache.h"
 
 class BatteryModule : public Module {
 public:
@@ -62,20 +63,20 @@ private:
     // 2. Colores (Estética original preservada)
     if (isCharging) {
       if (percentage >= 90.0f)
-        iconElement.foregroundColor = Color::parse_color("#00FF00", NULL, Color(0, 255, 0, 255));
+        iconElement.foregroundColor = ColorCache::green();
       else if (percentage >= 20.0f)
-        iconElement.foregroundColor = Color::parse_color("#FFA500", NULL, Color(255, 165, 0, 255));
+        iconElement.foregroundColor = ColorCache::orange();
       else
-        iconElement.foregroundColor = Color::parse_color("#FF0000", NULL, Color(255, 0, 0, 255));
+        iconElement.foregroundColor = ColorCache::red();
     } else {
-      iconElement.foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
+      iconElement.foregroundColor = ColorCache::purple();
     }
 
     // Texto: Rojo solo si es crítico y no carga
     if (percentage < 20.0f && !isCharging) {
-      textElement.foregroundColor = Color::parse_color("#FF0000", NULL, Color(255, 0, 0, 255));
+      textElement.foregroundColor = ColorCache::red();
     } else {
-      textElement.foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
+      textElement.foregroundColor = ColorCache::purple();
     }
 
     iconElement.dirtyContent = true;
