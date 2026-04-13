@@ -9,7 +9,6 @@
 
 class Module;
 class Bar;
-class WorkspaceModule;
 
 class BarManager {
 public:
@@ -33,7 +32,6 @@ private:
   bool any_updated = false;
   int xcb_fd;
   Bar* bar;
-  WorkspaceModule* workspace = nullptr;
 
   void registerModule(Module* module);
   bool initializeAllModules();

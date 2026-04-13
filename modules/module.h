@@ -8,7 +8,9 @@
 #include <ctime>
 #include <algorithm>
 #include <cstring>
+#include <sys/select.h>
 #include "../barElement.h"
+#include "../config.h"
 
 // Forward declaration
 class BarManager;
@@ -32,21 +34,39 @@ class Module {
     }
 
     virtual void update() = 0;
-    virtual bool initialize() { return true; } // Default implementation for modules that don't need initialization
+    virtual bool initialize() { return true; }
+
+    // Métodos opcionales para manejo de eventos asíncronos
+    // Retorna -1 si no hay file descriptor (default)
+    // Retorna el fd si el módulo necesita ser escuchado en select()
+    virtual int setupSelectFds(fd_set& fds) {
+        (void)fds;
+        return -1;
+    }
+
+    // Maneja eventos disponibles en los fds registrados
+    // Retorna true si el módulo necesita actualizarse
+    virtual bool handleEvents(fd_set& fds) {
+        (void)fds;
+        return false;
+    }
 
     // Métodos de control de actualización
   //
     bool shouldUpdate() {
-      if (autoUpdate) return true; // Actulizar por cada render
-      std::cout << "llegamos al should update" << std::endl;
+      if (autoUpdate) return true;
       time_t now = time(nullptr);
-      std::cout << "now: " << now << " lastUpdate: " << lastUpdate << " secondsPerUpdate: " << secondsPerUpdate << std::endl;
+      #if DEBUG
+      std::cout << "shouldUpdate: " << name << " now=" << now << " last=" << lastUpdate << std::endl;
+      #endif
       return (now - lastUpdate) >= secondsPerUpdate;
     }
 
     bool checkAndUpdate() {
       if (shouldUpdate()) {
-        std::cout << "se actualiza el modulo " << name << std::endl;
+        #if DEBUG
+        std::cout << "checkAndUpdate: " << name << std::endl;
+        #endif
         update();
         return true;
       }
@@ -66,7 +86,7 @@ class Module {
       fontIndex(-1),
       screenTarget(0),
       secondsPerUpdate(secondsPerUpdate),
-      lastUpdate(0),
+      lastUpdate(time(nullptr)),
       autoUpdate(autoUpdate),
       name(name)
     {

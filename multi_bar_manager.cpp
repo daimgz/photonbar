@@ -68,9 +68,6 @@ bool MultiBarManager::initialize() {
 
   for (auto* module : topLeftModules) {
     module->setRenderFunction([this]() { renderBars(); });
-    if (module->getName() == "workspace") {
-      workspace = static_cast<WorkspaceModule*>(module);
-    }
   }
   for (auto* module : topRightModules) {
     module->setRenderFunction([this]() { renderBars(); });
@@ -87,6 +84,9 @@ bool MultiBarManager::initialize() {
 
   bottomModules.insert(bottomModules.end(), bottomLeftModules.begin(), bottomLeftModules.end());
   bottomModules.insert(bottomModules.end(), bottomRightModules.begin(), bottomRightModules.end());
+
+  allModules.insert(allModules.end(), topModules.begin(), topModules.end());
+  allModules.insert(allModules.end(), bottomModules.begin(), bottomModules.end());
 
   if (!initializeAllModules(topModules)) return false;
   if (!initializeAllModules(bottomModules)) return false;
@@ -107,12 +107,15 @@ void MultiBarManager::run() {
     FD_ZERO(&fds);
     if (xcb_fd_top != -1) FD_SET(xcb_fd_top, &fds);
     if (xcb_fd_bottom != -1) FD_SET(xcb_fd_bottom, &fds);
-    int i3_fd = workspace ? workspace->setupSelectFds(fds) : -1;
 
     int max_fd = -1;
     if (xcb_fd_top != -1) max_fd = xcb_fd_top;
     if (xcb_fd_bottom != -1 && xcb_fd_bottom > max_fd) max_fd = xcb_fd_bottom;
-    if (i3_fd > max_fd) max_fd = i3_fd;
+
+    for (Module* module : allModules) {
+      int fd = module->setupSelectFds(fds);
+      if (fd > max_fd) max_fd = fd;
+    }
 
     int ret;
     if (max_fd == -1) {
@@ -126,7 +129,13 @@ void MultiBarManager::run() {
       break;
     }
 
-    bool workspace_changed = workspace ? workspace->handleI3Events(fds) : false;
+    bool modules_need_update = false;
+    for (Module* module : allModules) {
+      if (module->handleEvents(fds)) {
+        module->update();
+        modules_need_update = true;
+      }
+    }
 
     if (xcb_fd_top != -1 && FD_ISSET(xcb_fd_top, &fds)) {
       barTop->processXEvents();
@@ -136,8 +145,7 @@ void MultiBarManager::run() {
     }
 
     bool should_update = false;
-    if (workspace_changed) {
-      workspace->update();
+    if (modules_need_update) {
       should_update = true;
     } else if (ret == 0) {
       should_update = true;

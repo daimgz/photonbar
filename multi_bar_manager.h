@@ -30,6 +30,7 @@ public:
 private:
   std::vector<Module*> topModules;
   std::vector<Module*> bottomModules;
+  std::vector<Module*> allModules;
 
   const std::vector<Module*> topLeftModules;
   const std::vector<Module*> topRightModules;
@@ -44,7 +45,6 @@ private:
 
   Bar* barTop;
   Bar* barBottom;
-  WorkspaceModule* workspace = nullptr;
 
   void registerModule(Module* module);
   bool initializeAllModules(std::vector<Module*>& modules);

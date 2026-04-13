@@ -4,7 +4,6 @@
 #include "bar_manager.h"
 #include "bar.h"
 #include "config.h"
-#include "modules/workspace.h"
 #include "modules/module.h"
 
 #include <sys/select.h>
@@ -41,9 +40,6 @@ BarManager::BarManager(
 
   for (auto* module : modules) {
     module->setRenderFunction([this]() { renderBar(); });
-    if (module->getName() == "workspace") {
-      workspace = static_cast<WorkspaceModule*>(module);
-    }
   }
 
   bar = new Bar(
@@ -71,7 +67,9 @@ bool BarManager::initialize() {
       gTopReady = true;
     }
     gInitCv.notify_one();
+    #if DEBUG
     fprintf(stderr, "[BarManager] Barra superior inicializada y lista\n");
+    #endif
   }
 
   return true;
@@ -89,11 +87,14 @@ void BarManager::run() {
 
     FD_ZERO(&fds);
     if (xcb_fd != -1) FD_SET(xcb_fd, &fds);
-    int i3_fd = workspace ? workspace->setupSelectFds(fds) : -1;
 
     int max_fd = -1;
     if (xcb_fd != -1) max_fd = xcb_fd;
-    if (i3_fd > max_fd) max_fd = i3_fd;
+
+    for (Module* m : modules) {
+      int fd = m->setupSelectFds(fds);
+      if (fd > max_fd) max_fd = fd;
+    }
 
     int ret;
     if (max_fd == -1) {
@@ -107,19 +108,28 @@ void BarManager::run() {
       break;
     }
 
-    bool workspace_changed = workspace ? workspace->handleI3Events(fds) : false;
+    bool module_event = false;
+    for (Module* m : modules) {
+      if (m->handleEvents(fds)) {
+        m->update();
+        module_event = true;
+      }
+    }
 
     if (xcb_fd != -1 && FD_ISSET(xcb_fd, &fds)) {
       handleXEvents(fds);
     }
 
     bool should_update = false;
-    if (workspace_changed) {
-      fprintf(stderr, "[BarManager] Workspace changed, marking for update\n");
-      workspace->update();
+    if (module_event) {
+      #if DEBUG
+      fprintf(stderr, "[BarManager] Module event detected\n");
+      #endif
       should_update = true;
     } else if (ret == 0) {
-      fprintf(stderr, "[BarManager] Timeout reached, checking modules\n");
+      #if DEBUG
+      fprintf(stderr, "[BarManager] Timeout reached\n");
+      #endif
       should_update = true;
     }
 
@@ -161,9 +171,11 @@ bool BarManager::hasUpdates() const {
 }
 
 void BarManager::renderBar() {
+  #if DEBUG
   static int renderCount = 0;
   renderCount++;
-  fprintf(stderr, "[BarManager] Rendering bar with content, num: %i", renderCount);
+  fprintf(stderr, "[BarManager] Rendering bar, num: %i\n", renderCount);
+  #endif
   bar->feed();
 }
 

@@ -1,6 +1,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#define DEBUG 0
+
 #define COLOR_BG        "#1A0B2E"
 #define COLOR_FG        "#E0AAFF"
 #define COLOR_ALERT     "#FF0000"
