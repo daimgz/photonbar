@@ -36,7 +36,7 @@ public:
   AudioModule() : Module("audio", false, 5), pwmonFd(-1), pwmonPid(-1),
     mainloop(nullptr), context(nullptr),
     currentSink(), allSinks(), defaultSinkName(),
-    baseElement(), lastUpdate(), lastBatteryCheck(), cachedBattery(-1),
+    baseElement(), lastBatteryCheck(), cachedBattery(-1),
     lastVolume(-1), lastMute(-1), lastSinkName() {
     baseElement.moduleName = name;
 
@@ -72,10 +72,6 @@ public:
   }
 
   bool handleEvents(fd_set& fds) override {
-    auto now = std::chrono::steady_clock::now();
-    if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastUpdate).count() < 50) {
-        return false;
-    }
     if (pwmonFd < 0 || !FD_ISSET(pwmonFd, &fds)) return false;
 
     char buffer[4096];
@@ -88,22 +84,18 @@ public:
 
     buffer[n] = '\0';
 
-    if ((strstr(buffer, "change") || strstr(buffer, "sink") || strstr(buffer, "sink-input")) ||
-         strstr(buffer, "default")) {
-      refreshCache();
-      updateElement();
-      return true;
-    }
-
-    return false;
+    return (
+      (
+        strstr(buffer, "change")      ||
+        strstr(buffer, "sink")        ||
+        strstr(buffer, "sink-input")
+      ) ||
+      strstr(buffer, "default")
+    );
   }
 
   void update() override {
-    auto now = std::chrono::steady_clock::now();
-
-    if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastUpdate).count() < 250) {
-      return;
-    }
+    time_t now = time(nullptr);
 
     refreshCache();
     lastVolume = currentSink.volume;
@@ -123,8 +115,7 @@ private:
   std::string defaultSinkName;
   BarElement baseElement;
 
-  std::chrono::steady_clock::time_point lastUpdate;
-  std::chrono::steady_clock::time_point lastBatteryCheck;
+  time_t lastBatteryCheck;
   int cachedBattery;
 
   int lastVolume;
@@ -231,8 +222,8 @@ private:
   }
 
   int getBluetoothBatteryLevel(const std::string& sinkName) {
-    auto now = std::chrono::steady_clock::now();
-    if (cachedBattery != -1 && std::chrono::duration_cast<std::chrono::seconds>(now - lastBatteryCheck).count() < 30) {
+    time_t now = time(nullptr);
+    if (cachedBattery != -1 && (now - lastBatteryCheck) < 30) {
       return cachedBattery;
     }
 
@@ -261,8 +252,6 @@ private:
     lastVolume = currentSink.volume;
     lastMute = currentSink.isMuted ? 1 : 0;
     lastSinkName = currentSink.name;
-    //updateElement();
-    //if (renderFunction) renderFunction();
   }
 
   void cycleSinks() {
@@ -282,8 +271,6 @@ private:
     lastVolume = currentSink.volume;
     lastMute = currentSink.isMuted ? 1 : 0;
     lastSinkName = currentSink.name;
-    //updateElement();
-    //if (renderFunction) renderFunction();
   }
 
   void adjustVolume(int delta) {
@@ -300,8 +287,6 @@ private:
     lastVolume = currentSink.volume;
     lastMute = currentSink.isMuted ? 1 : 0;
     lastSinkName = currentSink.name;
-    //updateElement();
-    //if (renderFunction) renderFunction();
   }
 
   void updateElement() {

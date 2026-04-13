@@ -69,7 +69,6 @@ public:
       strstr(buffer, "\"change\":\"init\"") ||
       strstr(buffer, "\"change\":\"empty\"") ||
       strstr(buffer, "\"change\":\"urgent\"")) {
-      updateElements();
       return true;
     }
     return false;
@@ -125,7 +124,6 @@ private:
           execlp("i3-msg", "i3-msg", "workspace", ws_name.c_str(), NULL);
           exit(1);
         }
-        if (renderFunction) renderFunction();
       });
 
       if (reply->workspaces[i].focused) {
