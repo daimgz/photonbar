@@ -863,6 +863,7 @@ void Bar::initSystemTray(void) {
   trayWindow = xcb_generate_id(c);
 
 
+
   int trayWindowX = max(0, montail->width - trayWindowWidth);
 
   const uint32_t values[] = {
@@ -875,6 +876,7 @@ void Bar::initSystemTray(void) {
     trayWindow,
     montail->window,
     trayWindowX,
+
 
     0,
 
@@ -921,7 +923,9 @@ void Bar::dockTrayIcon(xcb_window_t iconWindow) {
   trayIcons.push_back(iconWindow);
   size_t index = trayIcons.size() - 1;
   int step = trayIconSize + trayPadding;
+
   int x = trayPadding + static_cast<int>(index) * step;
+
   int y = (bh - trayIconSize) / 2;
 
   xcb_change_save_set(c, XCB_SET_MODE_INSERT, iconWindow);
