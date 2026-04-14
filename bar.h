@@ -70,7 +70,7 @@ public:
     void processXEvents(void);
     void feed();
 
-    xcb_window_t getBottomWindow() { return montail ? montail->window : 0; }
+    xcb_window_t getBottomWindow() { return montail ? montail->window : (monhead ? monhead->window : 0); }
 
     FontManager fontManager;
 
@@ -150,6 +150,10 @@ private:
     xcb_visualid_t getVisual(void);
     void init(char *wm_name, char *wm_instance);
     void setEwmhAtoms(void);
+    void initSystemTray(void);
+    void sendTrayManagerAnnouncement(xcb_window_t owner);
+    void handleTrayClientMessage(xcb_client_message_event_t *cm);
+    void dockTrayIcon(xcb_window_t iconWindow);
     monitor_t* monitorNew(int x, int y, int width, int height);
     void monitorAdd(monitor_t *mon);
     static int rectSortCb(const void *p1, const void *p2);
@@ -159,6 +163,17 @@ private:
     bool parseGeometryString(char *str, int *tmp);
     char* strip_path(char *path);
     static void sighandle(int signal);
+
+    bool trayEnabled = false;
+    int trayIconSize = 22;
+    int trayPadding = 5;
+    int trayWindowWidth = 200;
+    xcb_atom_t atomTraySelection = XCB_ATOM_NONE;
+    xcb_atom_t atomTrayOpcode = XCB_ATOM_NONE;
+    xcb_atom_t atomManager = XCB_ATOM_NONE;
+    xcb_atom_t atomXembedInfo = XCB_ATOM_NONE;
+    xcb_window_t trayWindow = XCB_WINDOW_NONE;
+    std::vector<xcb_window_t> trayIcons;
 };
 
 #endif

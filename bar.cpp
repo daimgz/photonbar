@@ -140,6 +140,8 @@ Bar::Bar(
     free(wm_class);
   }
 
+  initSystemTray();
+
   char color[] = "#ffffff";
   uint32_t nfgc = foregroundColor.v & 0x00ffffff;
   snprintf(color, sizeof(color), "#%06X", nfgc);
@@ -216,6 +218,11 @@ void Bar::processXEvents(void) {
             }
           }
         }
+        break;
+      }
+      case XCB_CLIENT_MESSAGE: {
+        auto *cm = reinterpret_cast<xcb_client_message_event_t *>(ev);
+        handleTrayClientMessage(cm);
         break;
       }
     }
@@ -766,6 +773,8 @@ void Bar::init(char *wm_name, char *wm_instance) {
     }
   }
 
+  initSystemTray();
+
   char color[] = "#ffffff";
   uint32_t nfgc = foregroundColor.v & 0x00ffffff;
   snprintf(color, sizeof(color), "#%06X", nfgc);
@@ -812,6 +821,118 @@ void Bar::setEwmhAtoms(void) {
     xcb_change_property(c, XCB_PROP_MODE_REPLACE, mon->window, atom_list[4], XCB_ATOM_CARDINAL, 32, 4, strut);
     xcb_change_property(c, XCB_PROP_MODE_REPLACE, mon->window, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, 3, "bar");
     xcb_change_property(c, XCB_PROP_MODE_REPLACE, mon->window, XCB_ATOM_WM_CLASS, XCB_ATOM_STRING, 8, 12, "lemonbar\0Bar");
+  }
+}
+
+void Bar::initSystemTray(void) {
+  monitor_t* trayMonitor = montail ? montail : monhead;
+  trayEnabled = !topbar && trayMonitor;
+  if (!trayEnabled) return;
+
+  const char* atomNames[] = {
+    "_NET_SYSTEM_TRAY_S0",
+    "_NET_SYSTEM_TRAY_OPCODE",
+    "MANAGER",
+    "_XEMBED_INFO"
+  };
+
+  xcb_intern_atom_cookie_t cookies[4];
+  for (int i = 0; i < 4; i++) {
+    cookies[i] = xcb_intern_atom(c, 0, strlen(atomNames[i]), atomNames[i]);
+  }
+
+  xcb_intern_atom_reply_t* reply = xcb_intern_atom_reply(c, cookies[0], NULL);
+  if (!reply) return;
+  atomTraySelection = reply->atom;
+  free(reply);
+
+  reply = xcb_intern_atom_reply(c, cookies[1], NULL);
+  if (!reply) return;
+  atomTrayOpcode = reply->atom;
+  free(reply);
+
+  reply = xcb_intern_atom_reply(c, cookies[2], NULL);
+  if (!reply) return;
+  atomManager = reply->atom;
+  free(reply);
+
+  reply = xcb_intern_atom_reply(c, cookies[3], NULL);
+  if (!reply) return;
+  atomXembedInfo = reply->atom;
+  free(reply);
+
+  trayWindow = xcb_generate_id(c);
+  int trayWindowX = max(0, trayMonitor->width - trayWindowWidth);
+  const uint32_t values[] = {
+    backgroundColor.v,
+    XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_STRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY
+  };
+  xcb_create_window(
+    c,
+    XCB_COPY_FROM_PARENT,
+    trayWindow,
+    trayMonitor->window,
+    trayWindowX,
+    0,
+    trayWindowWidth,
+    bh,
+    0,
+    XCB_WINDOW_CLASS_INPUT_OUTPUT,
+    visual,
+    XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK,
+    values
+  );
+  xcb_map_window(c, trayWindow);
+
+  xcb_set_selection_owner(c, trayWindow, atomTraySelection, XCB_CURRENT_TIME);
+  sendTrayManagerAnnouncement(trayWindow);
+}
+
+void Bar::sendTrayManagerAnnouncement(xcb_window_t owner) {
+  if (atomManager == XCB_ATOM_NONE || atomTraySelection == XCB_ATOM_NONE) return;
+
+  xcb_client_message_event_t managerEvent{};
+  managerEvent.response_type = XCB_CLIENT_MESSAGE;
+  managerEvent.window = scr->root;
+  managerEvent.type = atomManager;
+  managerEvent.format = 32;
+  managerEvent.data.data32[0] = XCB_CURRENT_TIME;
+  managerEvent.data.data32[1] = atomTraySelection;
+  managerEvent.data.data32[2] = owner;
+
+  xcb_send_event(c, 0, scr->root, XCB_EVENT_MASK_STRUCTURE_NOTIFY, reinterpret_cast<const char*>(&managerEvent));
+  xcb_flush(c);
+}
+
+void Bar::dockTrayIcon(xcb_window_t iconWindow) {
+  if (trayWindow == XCB_WINDOW_NONE || iconWindow == XCB_WINDOW_NONE) return;
+
+  trayIcons.push_back(iconWindow);
+  size_t index = trayIcons.size() - 1;
+  int step = trayIconSize + trayPadding;
+  int x = trayWindowWidth - trayPadding - trayIconSize - static_cast<int>(index) * step;
+  if (x < trayPadding) x = trayPadding;
+  int y = (bh - trayIconSize) / 2;
+
+  xcb_change_save_set(c, XCB_SET_MODE_INSERT, iconWindow);
+  xcb_reparent_window(c, iconWindow, trayWindow, x, y);
+  xcb_configure_window(
+    c,
+    iconWindow,
+    XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT,
+    (const uint32_t[]){ static_cast<uint32_t>(x), static_cast<uint32_t>(y), static_cast<uint32_t>(trayIconSize), static_cast<uint32_t>(trayIconSize) }
+  );
+  xcb_map_window(c, iconWindow);
+  xcb_flush(c);
+}
+
+void Bar::handleTrayClientMessage(xcb_client_message_event_t *cm) {
+  if (!trayEnabled || !cm) return;
+  if (cm->type != atomTrayOpcode) return;
+
+  constexpr uint32_t kSystemTrayRequestDock = 0;
+  if (cm->data.data32[1] == kSystemTrayRequestDock) {
+    dockTrayIcon(cm->data.data32[2]);
   }
 }
 
