@@ -862,6 +862,7 @@ void Bar::initSystemTray(void) {
 
   trayWindow = xcb_generate_id(c);
 
+
   int trayWindowX = max(0, montail->width - trayWindowWidth);
 
   const uint32_t values[] = {
@@ -876,14 +877,22 @@ void Bar::initSystemTray(void) {
     trayWindowX,
 
     0,
+
     trayWindowWidth,
     bh,
     0,
     XCB_WINDOW_CLASS_INPUT_OUTPUT,
     visual,
+
+    XCB_CW_BACK_PIXEL | XCB_CW_OVERRIDE_REDIRECT | XCB_CW_EVENT_MASK | XCB_CW_COLORMAP,
+    values
+  );
+  xcb_configure_window(c, trayWindow, XCB_CONFIG_WINDOW_STACK_MODE, (const uint32_t[]){ XCB_STACK_MODE_ABOVE });
+
     XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK,
     values
   );
+
   xcb_map_window(c, trayWindow);
 
   xcb_set_selection_owner(c, trayWindow, atomTraySelection, XCB_CURRENT_TIME);
