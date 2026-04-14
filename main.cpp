@@ -37,7 +37,6 @@
 #include "modules/weather.h"
 #include "modules/space.h"
 #include "modules/notifications.h"
-#include "modules/tray.h"
 #include "bar.h"
 
 static bool isProcessRunning(const char* processName) {
@@ -113,11 +112,6 @@ int main(int argc, char* argv[]) {
   static SpaceModule space_bottom;
   static AudioModule audio_bottom;
   static ResourcesModule resources_bottom;
-  static TrayModule tray_bottom;
-
-  fprintf(stderr, "[main] tray_bottom created\n");
-  fflush(stderr);
-
   std::vector<Module*> topLeftModules;
   topLeftModules.push_back(&workspace_top);
 
@@ -136,7 +130,6 @@ int main(int argc, char* argv[]) {
   bottomRightModules.push_back(&space_bottom);
   bottomRightModules.push_back(&resources_bottom);
   bottomRightModules.push_back(&ping_bottom);
-  bottomRightModules.push_back(&tray_bottom);
 
   MultiBarManager manager(
     topLeftModules,

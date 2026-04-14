@@ -861,6 +861,9 @@ void Bar::initSystemTray(void) {
   free(reply);
 
   trayWindow = xcb_generate_id(c);
+
+  int trayWindowX = max(0, montail->width - trayWindowWidth);
+
   const uint32_t values[] = {
     backgroundColor.v,
     XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_STRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY
@@ -870,7 +873,8 @@ void Bar::initSystemTray(void) {
     XCB_COPY_FROM_PARENT,
     trayWindow,
     montail->window,
-    montail->width - trayWindowWidth,
+    trayWindowX,
+
     0,
     trayWindowWidth,
     bh,
