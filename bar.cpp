@@ -829,15 +829,18 @@ void Bar::initSystemTray(void) {
   trayEnabled = !topbar && trayMonitor;
   if (!trayEnabled) return;
 
+  char selectionAtomName[64];
+  snprintf(selectionAtomName, sizeof(selectionAtomName), "_NET_SYSTEM_TRAY_S%d", scrNbr);
   const char* atomNames[] = {
-    "_NET_SYSTEM_TRAY_S0",
+    selectionAtomName,
     "_NET_SYSTEM_TRAY_OPCODE",
     "MANAGER",
-    "_XEMBED_INFO"
+    "_XEMBED_INFO",
+    "_XEMBED"
   };
 
-  xcb_intern_atom_cookie_t cookies[4];
-  for (int i = 0; i < 4; i++) {
+  xcb_intern_atom_cookie_t cookies[5];
+  for (int i = 0; i < 5; i++) {
     cookies[i] = xcb_intern_atom(c, 0, strlen(atomNames[i]), atomNames[i]);
   }
 
@@ -859,6 +862,11 @@ void Bar::initSystemTray(void) {
   reply = xcb_intern_atom_reply(c, cookies[3], NULL);
   if (!reply) return;
   atomXembedInfo = reply->atom;
+  free(reply);
+
+  reply = xcb_intern_atom_reply(c, cookies[4], NULL);
+  if (!reply) return;
+  atomXembed = reply->atom;
   free(reply);
 
   trayWindow = xcb_generate_id(c);
@@ -916,6 +924,19 @@ void Bar::dockTrayIcon(xcb_window_t iconWindow) {
 
   xcb_change_save_set(c, XCB_SET_MODE_INSERT, iconWindow);
   xcb_reparent_window(c, iconWindow, trayWindow, x, y);
+  if (atomXembed != XCB_ATOM_NONE) {
+    xcb_client_message_event_t xembedEvent{};
+    xembedEvent.response_type = XCB_CLIENT_MESSAGE;
+    xembedEvent.window = iconWindow;
+    xembedEvent.type = atomXembed;
+    xembedEvent.format = 32;
+    xembedEvent.data.data32[0] = XCB_CURRENT_TIME;
+    xembedEvent.data.data32[1] = 0; // XEMBED_EMBEDDED_NOTIFY
+    xembedEvent.data.data32[2] = trayWindow;
+    xembedEvent.data.data32[3] = 0;
+    xembedEvent.data.data32[4] = 0;
+    xcb_send_event(c, 0, iconWindow, XCB_EVENT_MASK_NO_EVENT, reinterpret_cast<const char*>(&xembedEvent));
+  }
   xcb_configure_window(
     c,
     iconWindow,

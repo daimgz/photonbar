@@ -172,6 +172,7 @@ private:
     xcb_atom_t atomTrayOpcode = XCB_ATOM_NONE;
     xcb_atom_t atomManager = XCB_ATOM_NONE;
     xcb_atom_t atomXembedInfo = XCB_ATOM_NONE;
+    xcb_atom_t atomXembed = XCB_ATOM_NONE;
     xcb_window_t trayWindow = XCB_WINDOW_NONE;
     std::vector<xcb_window_t> trayIcons;
 };
