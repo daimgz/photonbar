@@ -861,30 +861,38 @@ void Bar::initSystemTray(void) {
   free(reply);
 
   trayWindow = xcb_generate_id(c);
-  int trayWindowX = montail->x + max(0, montail->width - trayWindowWidth);
-  int trayWindowY = montail->y;
+
+
+  int trayWindowX = max(0, montail->width - trayWindowWidth);
+
   const uint32_t values[] = {
     backgroundColor.v,
-    dock,
-    XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_STRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY,
-    colormap
+    XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_STRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY
   };
   xcb_create_window(
     c,
-    (visual == scr->root_visual) ? XCB_COPY_FROM_PARENT : 32,
+    XCB_COPY_FROM_PARENT,
     trayWindow,
-    scr->root,
+    montail->window,
     trayWindowX,
-    trayWindowY,
+
+    0,
+
     trayWindowWidth,
     bh,
     0,
     XCB_WINDOW_CLASS_INPUT_OUTPUT,
     visual,
+
     XCB_CW_BACK_PIXEL | XCB_CW_OVERRIDE_REDIRECT | XCB_CW_EVENT_MASK | XCB_CW_COLORMAP,
     values
   );
   xcb_configure_window(c, trayWindow, XCB_CONFIG_WINDOW_STACK_MODE, (const uint32_t[]){ XCB_STACK_MODE_ABOVE });
+
+    XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK,
+    values
+  );
+
   xcb_map_window(c, trayWindow);
 
   xcb_set_selection_owner(c, trayWindow, atomTraySelection, XCB_CURRENT_TIME);

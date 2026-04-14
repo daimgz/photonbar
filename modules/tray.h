@@ -5,6 +5,11 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include <unistd.h>
+#include <vector>
+#include <string>
+
+
 #include "module.h"
 #include "../color_cache.h"
 

@@ -25,6 +25,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <chrono>
+#include <cstdio>
 
 #include "modules/datetime.h"
 #include "modules/battery.h"
@@ -37,6 +38,24 @@
 #include "modules/space.h"
 #include "modules/notifications.h"
 #include "bar.h"
+
+static bool isProcessRunning(const char* processName) {
+  char command[256];
+  snprintf(command, sizeof(command), "pgrep -x '%s' > /dev/null 2>&1", processName);
+  return system(command) == 0;
+}
+
+static void startSnixembedIfNeeded() {
+  if (isProcessRunning("snixembed")) {
+    return;
+  }
+
+  pid_t pid = fork();
+  if (pid == 0) {
+    execlp("snixembed", "snixembed", "--width=200", "--distance=5", "--icon-size=22", "--padding=5", nullptr);
+    _exit(1);
+  }
+}
 
 int main(int argc, char* argv[]) {
   bool restart_mode = false;
@@ -78,6 +97,7 @@ int main(int argc, char* argv[]) {
   }
 
   processManager.setupSignalHandlers();
+  startSnixembedIfNeeded();
 
   static WorkspaceModule workspace_top;
   static AudioModule audio_top;
