@@ -6,6 +6,7 @@
 #include "config.h"
 #include "modules/workspace.h"
 #include "modules/module.h"
+#include "modules/tray.h"
 #include "bar_manager.h"
 
 #include <X11/Xlib-xcb.h>
@@ -65,6 +66,16 @@ bool MultiBarManager::initialize() {
   c = barTop->c;
   xcb_fd_top = barTop->getXcbFd();
   xcb_fd_bottom = barBottom->getXcbFd();
+
+  xcb_window_t bottomWindow = barBottom->getBottomWindow();
+
+  fprintf(stderr, "[MultiBarManager] initialize: dpy=%p, bottomWindow=%lu\n", 
+          (void*)dpy, (unsigned long)bottomWindow);
+  fflush(stderr);
+
+  Window root = DefaultRootWindow(dpy);
+  fprintf(stderr, "[MultiBarManager] root=%lu\n", (unsigned long)root);
+  fflush(stderr);
 
   for (auto* module : topLeftModules) {
     module->setRenderFunction([this]() { renderBars(); });
@@ -131,7 +142,15 @@ void MultiBarManager::run() {
 
     bool modules_need_update = false;
     for (Module* module : allModules) {
+      if (module->getName() == "tray") {
+        fprintf(stderr, "[MultiBarManager] Calling handleEvents for tray module\n");
+        fflush(stderr);
+      }
       if (module->handleEvents(fds)) {
+        if (module->getName() == "tray") {
+          fprintf(stderr, "[MultiBarManager] Tray handleEvents returned true\n");
+          fflush(stderr);
+        }
         module->update();
         modules_need_update = true;
       }
@@ -168,7 +187,11 @@ bool MultiBarManager::initializeAllModules(std::vector<Module*>& modules) {
       fprintf(stderr, "Failed to initialize %s module\n", module->getName().c_str());
       return false;
     }
+
+    // Explicitly call update() for each module to initialize content
+    module->update();
   }
+
   return true;
 }
 

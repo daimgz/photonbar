@@ -70,6 +70,8 @@ public:
     void processXEvents(void);
     void feed();
 
+    xcb_window_t getBottomWindow() { return montail ? montail->window : 0; }
+
     FontManager fontManager;
 
     XftColor selFg;
