@@ -154,6 +154,11 @@ Bar::Bar(
 Bar::~Bar() {
   if (xftDraw) XftDrawDestroy(xftDraw);
 
+  if (trayManagerWindow != XCB_WINDOW_NONE) {
+    xcb_destroy_window(c, trayManagerWindow);
+    trayManagerWindow = XCB_WINDOW_NONE;
+  }
+
   while (monhead) {
     monitor_t *next = monhead->next;
     xcb_destroy_window(c, monhead->window);
@@ -892,8 +897,27 @@ void Bar::initSystemTray(void) {
   );
   xcb_map_window(c, trayWindow);
 
-  xcb_set_selection_owner(c, trayWindow, atomTraySelection, XCB_CURRENT_TIME);
-  sendTrayManagerAnnouncement(trayWindow);
+  trayManagerWindow = xcb_generate_id(c);
+  xcb_create_window(
+    c,
+    XCB_COPY_FROM_PARENT,
+    trayManagerWindow,
+    scr->root,
+    0,
+    0,
+    1,
+    1,
+    0,
+    XCB_WINDOW_CLASS_INPUT_OUTPUT,
+    visual,
+    0,
+    nullptr
+  );
+  xcb_map_window(c, trayManagerWindow);
+
+  xcb_set_selection_owner(c, trayManagerWindow, atomTraySelection, XCB_CURRENT_TIME);
+  sendTrayManagerAnnouncement(trayManagerWindow);
+  xcb_flush(c);
 }
 
 void Bar::sendTrayManagerAnnouncement(xcb_window_t owner) {
@@ -949,6 +973,7 @@ void Bar::dockTrayIcon(xcb_window_t iconWindow) {
 
 void Bar::handleTrayClientMessage(xcb_client_message_event_t *cm) {
   if (!trayEnabled || !cm) return;
+  if (trayManagerWindow != XCB_WINDOW_NONE && cm->window != trayManagerWindow) return;
   if (cm->type != atomTrayOpcode) return;
 
   constexpr uint32_t kSystemTrayRequestDock = 0;
