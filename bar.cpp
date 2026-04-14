@@ -861,7 +861,11 @@ void Bar::initSystemTray(void) {
   free(reply);
 
   trayWindow = xcb_generate_id(c);
+
+
+
   int trayWindowX = max(0, montail->width - trayWindowWidth);
+
   const uint32_t values[] = {
     backgroundColor.v,
     XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_STRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY
@@ -872,15 +876,25 @@ void Bar::initSystemTray(void) {
     trayWindow,
     montail->window,
     trayWindowX,
+
+
     0,
+
     trayWindowWidth,
     bh,
     0,
     XCB_WINDOW_CLASS_INPUT_OUTPUT,
     visual,
+
+    XCB_CW_BACK_PIXEL | XCB_CW_OVERRIDE_REDIRECT | XCB_CW_EVENT_MASK | XCB_CW_COLORMAP,
+    values
+  );
+  xcb_configure_window(c, trayWindow, XCB_CONFIG_WINDOW_STACK_MODE, (const uint32_t[]){ XCB_STACK_MODE_ABOVE });
+
     XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK,
     values
   );
+
   xcb_map_window(c, trayWindow);
 
   xcb_set_selection_owner(c, trayWindow, atomTraySelection, XCB_CURRENT_TIME);
@@ -909,8 +923,9 @@ void Bar::dockTrayIcon(xcb_window_t iconWindow) {
   trayIcons.push_back(iconWindow);
   size_t index = trayIcons.size() - 1;
   int step = trayIconSize + trayPadding;
-  int x = trayWindowWidth - trayPadding - trayIconSize - static_cast<int>(index) * step;
-  if (x < trayPadding) x = trayPadding;
+
+  int x = trayPadding + static_cast<int>(index) * step;
+
   int y = (bh - trayIconSize) / 2;
 
   xcb_change_save_set(c, XCB_SET_MODE_INSERT, iconWindow);
