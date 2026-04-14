@@ -6,7 +6,6 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <sys/wait.h>
 #include <vector>
 #include <string>
 
@@ -17,7 +16,7 @@
 
 class TrayModule : public Module {
 public:
-  TrayModule() : Module("tray", false, 60), snixPid(-1), snixFd(-1) {
+  TrayModule() : Module("tray", false, 60) {
     iconElement.moduleName = name;
     elements.push_back(&iconElement);
 
@@ -26,12 +25,7 @@ public:
       system("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle 2>/dev/null");
     });
 
-    initSnixembed();
     update();
-  }
-
-  ~TrayModule() {
-    cleanupSnix();
   }
 
   void update() override {
@@ -106,35 +100,6 @@ public:
   }
 
 private:
-  pid_t snixPid;
-  int snixFd;
-
-  void initSnixembed() {
-    if (system("pgrep -x snixembed > /dev/null 2>&1") == 0) {
-      return;
-    }
-
-    snixPid = fork();
-    if (snixPid == -1) {
-      return;
-    }
-
-    if (snixPid == 0) {
-      execlp("snixembed", "snixembed", "--width=200", "--distance=5", "--icon-size=22", "--padding=5", NULL);
-      _exit(1);
-    }
-  }
-
-  void cleanupSnix() {
-    if (snixPid > 0) {
-      kill(snixPid, SIGTERM);
-      waitpid(snixPid, NULL, 0);
-    }
-    if (snixFd >= 0) {
-      close(snixFd);
-    }
-  }
-
   BarElement iconElement;
 };
 
