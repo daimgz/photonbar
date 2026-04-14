@@ -898,6 +898,9 @@ void Bar::initSystemTray(void) {
   xcb_map_window(c, trayWindow);
 
   trayManagerWindow = xcb_generate_id(c);
+  const uint32_t managerValues[] = {
+    XCB_EVENT_MASK_STRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_PROPERTY_CHANGE
+  };
   xcb_create_window(
     c,
     XCB_COPY_FROM_PARENT,
@@ -910,8 +913,8 @@ void Bar::initSystemTray(void) {
     0,
     XCB_WINDOW_CLASS_INPUT_OUTPUT,
     visual,
-    0,
-    nullptr
+    XCB_CW_EVENT_MASK,
+    managerValues
   );
   xcb_map_window(c, trayManagerWindow);
 
@@ -973,7 +976,6 @@ void Bar::dockTrayIcon(xcb_window_t iconWindow) {
 
 void Bar::handleTrayClientMessage(xcb_client_message_event_t *cm) {
   if (!trayEnabled || !cm) return;
-  if (trayManagerWindow != XCB_WINDOW_NONE && cm->window != trayManagerWindow) return;
   if (cm->type != atomTrayOpcode) return;
 
   constexpr uint32_t kSystemTrayRequestDock = 0;
