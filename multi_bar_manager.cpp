@@ -43,20 +43,20 @@ MultiBarManager::~MultiBarManager() {
 bool MultiBarManager::initialize() {
   barTop = new Bar(
     "topBar",
-    COLOR_BG,
-    COLOR_FG,
+    Config::COLOR_BACKGROUND,
+    Config::COLOR_FOREGROUND,
     true,
-    {std::string(FONT_TEXT), std::string(FONT_ICON)},
+    {std::string(Config::FONT_TEXT), std::string(Config::FONT_ICON)},
     topLeftModules,
     topRightModules
   );
 
   barBottom = new Bar(
     "bottomBar",
-    COLOR_BG,
-    COLOR_FG,
+    Config::COLOR_BACKGROUND,
+    Config::COLOR_FOREGROUND,
     false,
-    {std::string(FONT_TEXT), std::string(FONT_ICON)},
+    {std::string(Config::FONT_TEXT), std::string(Config::FONT_ICON)},
     bottomLeftModules,
     bottomRightModules
   );
@@ -187,7 +187,7 @@ bool MultiBarManager::hasUpdates() const {
 void MultiBarManager::renderBars() {
   static int renderCount = 0;
   renderCount++;
-  fprintf(stderr, "[MultiBarManager] Rendering bars, num: %i\n", renderCount);
+  fprintf(stderr, "\n[MultiBarManager] Rendering bars, num: %i\n\n", renderCount);
   barTop->feed();
   barBottom->feed();
 }

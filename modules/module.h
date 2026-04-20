@@ -18,9 +18,6 @@ class BarManager;
 class Module {
   public:
 
-    // Colores comunes para todos los módulos
-    static constexpr const char* COLOR_RED = "#FF6B6B";   // Rojo para estado muteado
-
     xcb_window_t window;
     int fontIndex;          // -1 = automático
     int screenTarget;       // +/-/f/l/número
@@ -53,20 +50,19 @@ class Module {
 
     // Métodos de control de actualización
   //
-    bool shouldUpdate() {
+    virtual bool shouldUpdate() {
       if (autoUpdate) return true;
+      if (secondsPerUpdate <= 0) return false;
       time_t now = time(nullptr);
-      #if DEBUG
-      std::cout << "shouldUpdate: " << name << " now=" << now << " last=" << lastUpdate << std::endl;
-      #endif
       return (now - lastUpdate) >= secondsPerUpdate;
     }
 
     bool checkAndUpdate() {
       if (shouldUpdate()) {
         #if DEBUG
-        std::cout << "checkAndUpdate: " << name << std::endl;
+          std::cout << "shouldUpdate " << name << std::endl;
         #endif
+
         update();
         return true;
       }

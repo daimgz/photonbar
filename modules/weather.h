@@ -13,9 +13,10 @@ using namespace std;
 #include "module.h"
 #include <fmt/format.h>
 #include "../barElement.h"
-#include "../color_cache.h"
+
 
 class WeatherModule : public Module {
+
   private:
     // Elementos de la UI
     BarElement baseElement;
@@ -38,6 +39,9 @@ class WeatherModule : public Module {
     // Optimización: Conexión persistente y cache
     CURL* curl_handle;
     time_t lastModified;
+
+    const Color COLOR_TEMPERATURE_HIGH = Color::RED;
+    const Color COLOR_TEMPERATURE_LOW  = Color::BLUE;
 
     // Descripciones del clima (códigos WMO)
     std::array<const char*, 10> weather_descriptions = {
@@ -100,8 +104,7 @@ class WeatherModule : public Module {
         }
       });
 
-      // Color base del texto
-      baseElement.foregroundColor = ColorCache::purple();
+      baseElement.foregroundColor = Config::COLOR_FOREGROUND;
 
       elements.push_back(&baseElement);
     }
@@ -156,20 +159,9 @@ class WeatherModule : public Module {
         initializeCurlHandle();
       }
 
-      bool needsUpdate = (now - lastApiCall) >= secondsPerUpdate;
-      bool shouldRetry = (lastApiCall == 0) || ((now - lastApiCall) >= 60 && lastApiCallFailed);
-
-      if (needsUpdate || shouldRetry) {
-        if (fetchWeatherData()) {
-          lastApiCall = now;
-          lastApiCallFailed = false;
-        } else {
-          lastApiCallFailed = true;
-        }
-      }
-
+      fetchWeatherData();
       generateBuffer();
-      lastUpdate = time(nullptr);
+      lastUpdate = now;
     }
 
   private:
@@ -342,13 +334,13 @@ class WeatherModule : public Module {
       // Cambiar color según estado
       if (temperature > 30) {
         // Muy caliente - rojo
-        baseElement.foregroundColor = ColorCache::lightRed();
+        baseElement.foregroundColor = COLOR_TEMPERATURE_HIGH;
       } else if (temperature < 5) {
         // Muy frío - azul
-        baseElement.foregroundColor = ColorCache::blue();
+        baseElement.foregroundColor = COLOR_TEMPERATURE_LOW;
       } else {
         // Normal - color por defecto
-        baseElement.foregroundColor = ColorCache::purple();
+        baseElement.foregroundColor = Config::COLOR_FOREGROUND;
       }
     }
 };

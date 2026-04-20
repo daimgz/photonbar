@@ -35,8 +35,8 @@ class Bar {
 public:
     Bar(
         const char *name,
-        const char *_backgroundColor,
-        const char *_foregroundColor,
+        const Color _backgroundColor,
+        const Color _foregroundColor,
         const bool topBar,
         const std::vector<std::string> &fonts,
         const std::vector<Module*> &leftModules,
@@ -45,8 +45,8 @@ public:
 
     Bar(
         const char *name,
-        const char *_backgroundColor,
-        const char *_foregroundColor,
+        const Color _backgroundColor,
+        const Color _foregroundColor,
         const bool topBar,
         const std::vector<std::string> &fonts,
         const std::vector<Module*> &leftModules,

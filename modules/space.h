@@ -86,7 +86,7 @@ class SpaceModule : public Module {
       });
 
       // Color base del texto (igual al COLOR_FG del sistema original)
-      baseElement.foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
+      baseElement.foregroundColor = Config::COLOR_FOREGROUND;
 
       elements.push_back(&baseElement);
     }
@@ -96,7 +96,7 @@ class SpaceModule : public Module {
 
       // Generar texto según modo actual usando snprintf estándar
       int mode_idx = displayMode % NUM_DISPLAY_MODES;
-      
+
       switch(mode_idx) {
         case DISPLAY_FREE:
           baseElement.contentLen = snprintf(
@@ -130,7 +130,7 @@ class SpaceModule : public Module {
       baseElement.dirtyContent = true;
 
       // Color fijo igual al original
-      baseElement.foregroundColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
+      baseElement.foregroundColor = Config::COLOR_FOREGROUND;
 
       // 🔥 CRÍTICO: Actualizar timestamp
       lastUpdate = time(nullptr);

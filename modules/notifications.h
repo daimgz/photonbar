@@ -7,7 +7,7 @@
 #include <chrono>
 #include "module.h"
 #include "../barElement.h"
-#include "../color_cache.h"
+
 
 class NotificationsModule : public Module {
 private:
@@ -51,10 +51,10 @@ private:
             } else {
                 snprintf(element.content, CONTENT_MAX_LEN, u8"\U000f009b");
             }
-            element.foregroundColor = ColorCache::lightRed();
+            element.foregroundColor = Color::RED;
         } else {
             snprintf(element.content, CONTENT_MAX_LEN, u8"\U000f009c");
-            element.foregroundColor = ColorCache::purple();
+            element.foregroundColor = Config::COLOR_FOREGROUND;
         }
         element.dirtyContent = true;
     }

@@ -11,8 +11,8 @@
 
 Bar::Bar(
   const char *name,
-  const char *_backgroundColor,
-  const char *_foregroundColor,
+  const Color _backgroundColor,
+  const Color _foregroundColor,
   const bool topBar,
   const std::vector<std::string> &fonts,
   const std::vector<Module*> &leftModules,
@@ -30,8 +30,8 @@ Bar::Bar(
   modules.insert(modules.end(), leftModules.begin(), leftModules.end());
   modules.insert(modules.end(), rightModules.begin(), rightModules.end());
 
-  defaultBackgroundColor = backgroundColor = Color::parse_color(_backgroundColor, NULL, (Color)0x00000000U);
-  defaultForegroundColor = foregroundColor = Color::parse_color(_foregroundColor, NULL, (Color)0x11111111U);
+  defaultBackgroundColor = backgroundColor = _backgroundColor;
+  defaultForegroundColor = foregroundColor = _foregroundColor;
   defaultUnderlineColor = underlineColor = foregroundColor;
 
   xconn();
@@ -46,8 +46,8 @@ Bar::Bar(
 
 Bar::Bar(
   const char *name,
-  const char *_backgroundColor,
-  const char *_foregroundColor,
+  const Color _backgroundColor,
+  const Color _foregroundColor,
   const bool topBar,
   const std::vector<std::string> &fonts,
   const std::vector<Module*> &leftModules,
@@ -78,8 +78,8 @@ Bar::Bar(
   modules.insert(modules.end(), leftModules.begin(), leftModules.end());
   modules.insert(modules.end(), rightModules.begin(), rightModules.end());
 
-  defaultBackgroundColor = backgroundColor = Color::parse_color(_backgroundColor, NULL, (Color)0x00000000U);
-  defaultForegroundColor = foregroundColor = Color::parse_color(_foregroundColor, NULL, (Color)0x11111111U);
+  defaultBackgroundColor = backgroundColor = _backgroundColor;
+  defaultForegroundColor = foregroundColor = _foregroundColor;
   defaultUnderlineColor = underlineColor = foregroundColor;
 
   if (existing_fontManager) {
@@ -481,18 +481,18 @@ void Bar::renderElement(BarElement* element, monitor_t* cur_mon) {
   Color oldFgColor = foregroundColor;
   Color oldUlColor = underlineColor;
 
-  if (element->backgroundColor != Color(0x00000000U))
+  if (element->backgroundColor != Color())
     backgroundColor = element->backgroundColor;
   else
     backgroundColor = defaultBackgroundColor;
 
-  if (element->foregroundColor != Color(0x00000000U))
+  if (element->foregroundColor != Color())
     foregroundColor = element->foregroundColor;
   else
     foregroundColor = defaultForegroundColor;
 
   if (element->underline) {
-    if (element->underlineColor != Color(0x00000000U))
+    if (element->underlineColor != Color())
       underlineColor = element->underlineColor;
     else
       underlineColor = defaultUnderlineColor;
@@ -588,15 +588,15 @@ void Bar::parseModulesForSide(const std::vector<Module*>& modules, int startX, b
 
     for (BarElement* element : module->getElements()) {
       bool colorsChanged = false;
-      if (element->backgroundColor != Color(0x00000000U)) {
+      if (element->backgroundColor != Color()) {
         backgroundColor = element->backgroundColor;
         colorsChanged = true;
       }
-      if (element->foregroundColor != Color(0x00000000U)) {
+      if (element->foregroundColor != Color()) {
         foregroundColor = element->foregroundColor;
         colorsChanged = true;
       }
-      if (element->underlineColor != Color(0x00000000U)) {
+      if (element->underlineColor != Color()) {
         underlineColor = element->underlineColor;
         colorsChanged = true;
       }
@@ -625,15 +625,15 @@ void Bar::parseRightModules() {
     module->window = cur_mon->window;
     for (BarElement* element : module->getElements()) {
       bool colorsChanged = false;
-      if (element->backgroundColor != Color(0x00000000U)) {
+      if (element->backgroundColor != Color()) {
         backgroundColor = element->backgroundColor;
         colorsChanged = true;
       }
-      if (element->foregroundColor != Color(0x00000000U)) {
+      if (element->foregroundColor != Color()) {
         foregroundColor = element->foregroundColor;
         colorsChanged = true;
       }
-      if (element->underlineColor != Color(0x00000000U)) {
+      if (element->underlineColor != Color()) {
         underlineColor = element->underlineColor;
         colorsChanged = true;
       }

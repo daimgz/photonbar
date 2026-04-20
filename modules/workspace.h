@@ -14,12 +14,12 @@
 
 #include "i3ipc.h"
 #include "module.h"
-#include "../color_cache.h"
+
 #include "../config.h"
 
 class WorkspaceModule : public Module {
 public:
-  WorkspaceModule() : Module("workspace", true, 1), i3Fd(-1) {
+  WorkspaceModule() : Module("workspace", false, 0), i3Fd(-1) {
     initialize();
     initializeElements();
   }
@@ -78,6 +78,9 @@ private:
   int i3Fd;
   std::vector<BarElement*> workspaceElements;
 
+  const Color COLOR_FOCUSED = Config::COLOR_FOREGROUND;
+  const Color COLOR_UNFOCUSED = Color::GRAY;
+
   int subscribeI3() {
     int pipefd[2];
     if (pipe(pipefd) == -1) return -1;
@@ -127,11 +130,13 @@ private:
       });
 
       if (reply->workspaces[i].focused) {
-        element->foregroundColor = ColorCache::purple();
-        element->underlineColor = ColorCache::purple();
+        element->underlineColor =
+          element->foregroundColor =
+            COLOR_FOCUSED;
+
         element->underline = true;
       } else {
-        element->foregroundColor = ColorCache::gray();
+        element->foregroundColor = COLOR_UNFOCUSED;
         element->underline = false;
       }
 
@@ -163,11 +168,13 @@ private:
       element->dirtyContent = true;
 
       if (reply->workspaces[i].focused) {
-        element->foregroundColor = ColorCache::purple();
-        element->underlineColor = ColorCache::purple();
+        element->underlineColor =
+          element->foregroundColor =
+            COLOR_FOCUSED;
+
         element->underline = true;
       } else {
-        element->foregroundColor = ColorCache::gray();
+        element->foregroundColor = COLOR_UNFOCUSED;
         element->underline = false;
       }
     }

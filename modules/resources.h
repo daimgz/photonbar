@@ -11,7 +11,7 @@
 #include "module.h"
 #include "../barElement.h"
 #include "../color.h"
-#include "../color_cache.h"
+
 
 class ResourcesModule : public Module {
   private:
@@ -30,8 +30,7 @@ class ResourcesModule : public Module {
     BarElement tempElement;
 
     // ================= COLORS =================
-    Color colorNormal;
-    Color colorAlert;
+    const Color COLOR_ALERT = Color::RED;
 
     // ================= ICONS =================
     static constexpr const char* ICON_RAM  = "\uefc5";
@@ -44,23 +43,21 @@ class ResourcesModule : public Module {
     static constexpr float TEMP_WARN = 70.0f;
 
   public:
-    ResourcesModule() : Module("resources", false, 2) {
-      colorNormal = ColorCache::purple();
-      colorAlert  = ColorCache::lightRed();
+    ResourcesModule() : Module("resources", false, 10) {
 
       // ---- RAM ----
       ramElement.moduleName = name;
-      ramElement.foregroundColor = colorNormal;
+      ramElement.foregroundColor = Config::COLOR_FOREGROUND;
       elements.push_back(&ramElement);
 
       // ---- CPU ----
       cpuElement.moduleName = name;
-      cpuElement.foregroundColor = colorNormal;
+      cpuElement.foregroundColor = Config::COLOR_FOREGROUND;
       elements.push_back(&cpuElement);
 
       // ---- TEMP ----
       tempElement.moduleName = name;
-      tempElement.foregroundColor = colorNormal;
+      tempElement.foregroundColor = Config::COLOR_FOREGROUND;
       elements.push_back(&tempElement);
     }
 
@@ -202,7 +199,7 @@ class ResourcesModule : public Module {
         ramElement.content, CONTENT_MAX_LEN,
         "%s %.1f%% ▏", ICON_RAM, ram
       );
-      ramElement.foregroundColor = (ram > RAM_WARN) ? colorAlert : colorNormal;
+      ramElement.foregroundColor = (ram > RAM_WARN) ? COLOR_ALERT : Config::COLOR_FOREGROUND;
       ramElement.dirtyContent = true;
 
       // ---- CPU ----
@@ -210,7 +207,7 @@ class ResourcesModule : public Module {
         cpuElement.content, CONTENT_MAX_LEN,
         "%s %.1f%% ", ICON_CPU, cpu
       );
-      cpuElement.foregroundColor = (cpu > CPU_WARN) ? colorAlert : colorNormal;
+      cpuElement.foregroundColor = (cpu > CPU_WARN) ? COLOR_ALERT : Config::COLOR_FOREGROUND;
       cpuElement.dirtyContent = true;
 
       // ---- TEMP ----
@@ -218,7 +215,7 @@ class ResourcesModule : public Module {
         tempElement.content, CONTENT_MAX_LEN,
         " %s %.0f°C", ICON_TEMP, temp
       );
-      tempElement.foregroundColor = (temp > TEMP_WARN) ? colorAlert : colorNormal;
+      tempElement.foregroundColor = (temp > TEMP_WARN) ? COLOR_ALERT : Config::COLOR_FOREGROUND;
       tempElement.dirtyContent = true;
 
       lastUpdate = time(nullptr);

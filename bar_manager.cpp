@@ -44,10 +44,10 @@ BarManager::BarManager(
 
   bar = new Bar(
     name,
-    COLOR_BG,
-    COLOR_FG,
+    Config::COLOR_BACKGROUND,
+    Config::COLOR_FOREGROUND,
     this->isTop,
-    {std::string(FONT_TEXT), std::string(FONT_ICON)},
+    {std::string(Config::FONT_TEXT), std::string(Config::FONT_ICON)},
     leftModules,
     rightModules
   );
@@ -134,6 +134,7 @@ void BarManager::run() {
     }
 
     if (should_update) {
+      any_updated = false;
       updateModules();
 
       if (hasUpdates()) {
@@ -158,7 +159,6 @@ bool BarManager::initializeAllModules() {
 }
 
 void BarManager::updateModules() {
-  any_updated = false;
   for (Module* module : modules) {
     if (module->checkAndUpdate()) {
       any_updated = true;

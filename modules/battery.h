@@ -7,7 +7,7 @@
 #include "module.h"
 #include "../helper.h"
 #include "../notifyManeger.h"
-#include "../color_cache.h"
+
 
 class BatteryModule : public Module {
 public:
@@ -37,6 +37,10 @@ public:
   }
 
 private:
+  const Color COLOR_FULL     = Color::GREEN;
+  const Color COLOR_CHARGING = Color::ORANGE;
+  const Color COLOR_LOW      = Color::RED;
+
   BarElement iconElement, textElement;
   long energyNow = 0, energyFull = 0, powerNow = 0;
   char status[16] = "Unknown";
@@ -63,20 +67,20 @@ private:
     // 2. Colores (Estética original preservada)
     if (isCharging) {
       if (percentage >= 90.0f)
-        iconElement.foregroundColor = ColorCache::green();
+        iconElement.foregroundColor = COLOR_FULL;
       else if (percentage >= 20.0f)
-        iconElement.foregroundColor = ColorCache::orange();
+        iconElement.foregroundColor = COLOR_CHARGING;
       else
-        iconElement.foregroundColor = ColorCache::red();
+        iconElement.foregroundColor = COLOR_LOW;
     } else {
-      iconElement.foregroundColor = ColorCache::purple();
+      iconElement.foregroundColor = Config::COLOR_FOREGROUND;
     }
 
     // Texto: Rojo solo si es crítico y no carga
     if (percentage < 20.0f && !isCharging) {
-      textElement.foregroundColor = ColorCache::red();
+      textElement.foregroundColor = Color::RED;
     } else {
-      textElement.foregroundColor = ColorCache::purple();
+      textElement.foregroundColor = Config::COLOR_FOREGROUND;
     }
 
     iconElement.dirtyContent = true;

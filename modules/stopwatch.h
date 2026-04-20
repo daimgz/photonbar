@@ -7,6 +7,7 @@
 #include "module.h"
 #include "../color.h"
 
+
 class StopwatchModule : public Module {
 private:
   // 2 elementos principales: logo y tiempo
@@ -27,6 +28,10 @@ private:
   static constexpr const char* ICON_PLAY = " \uf04b";
   static constexpr const char* ICON_PAUSE = " \uf04c";
   static constexpr const char* ICON_LOGO = "\uf2f2"; // Icono de reloj más común
+
+  const Color COLOR_RUNNING = Color::GREEN;
+  const Color COLOR_PAUSE   = Color::ORANGE;
+  //const Color COLOR_STOP    = Color::RED;
 
   long long get_elapsed_ms() {
     if (!isRunning) return 0;
@@ -115,18 +120,15 @@ private:
   }
 
   void applyColors() {
-    Color defaultColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
-    Color orangeColor = Color::parse_color("#FFA500", NULL, Color(255, 165, 0, 255));
-    Color greenColor = Color::parse_color("#90EE90", NULL, Color(144, 238, 144, 255));
 
     // Aplicar colores a todos los elementos según estado
     for (auto* elem : allElements) {
       if (!isRunning) {
-        elem->foregroundColor = defaultColor;
+        elem->foregroundColor = Config::COLOR_FOREGROUND;
       } else if (isPaused) {
-        elem->foregroundColor = orangeColor;
+        elem->foregroundColor = COLOR_PAUSE;
       } else {
-        elem->foregroundColor = greenColor;
+        elem->foregroundColor = COLOR_RUNNING;
       }
     }
   }
@@ -135,11 +137,20 @@ public:
   StopwatchModule() : Module("stopwatch", false, 1) {
     setupAllElements();
     configureAllEvents();
+    update();
   }
 
   ~StopwatchModule() {
     // Los elementos son estáticos, no necesitan limpieza manual
     allElements.clear();
+  }
+
+  bool shouldUpdate() override {
+    if (!showDetails)
+      return false;
+    if (!isRunning || isPaused)
+      return false;
+    return Module::shouldUpdate();
   }
 
   void update() override {

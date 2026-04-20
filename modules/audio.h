@@ -19,7 +19,7 @@
 
 #include "module.h"
 #include "../helper.h"
-#include "../color_cache.h"
+
 #include "../config.h"
 
 struct SinkInfo {
@@ -33,7 +33,8 @@ struct SinkInfo {
 
 class AudioModule : public Module {
 public:
-  AudioModule() : Module("audio", false, 5), pwmonFd(-1), pwmonPid(-1),
+
+  AudioModule() : Module("audio", false, 0), pwmonFd(-1), pwmonPid(-1),
     mainloop(nullptr), context(nullptr),
     currentSink(), allSinks(), defaultSinkName(),
     baseElement(), lastBatteryCheck(), cachedBattery(-1),
@@ -121,6 +122,11 @@ private:
   int lastVolume;
   int lastMute;
   std::string lastSinkName;
+
+  const Color COLOR_MUTE = Color::RED;
+
+  static const constexpr char *ICON_SPEAKER = "\ue638";
+  static const constexpr char *ICON_HEADPHONES = u8"\U000f02cb";
 
   bool initPa() {
     mainloop = pa_mainloop_new();
@@ -300,13 +306,15 @@ private:
     }
     baseElement.content[baseElement.contentLen] = '\0';
     baseElement.dirtyContent = true;
-    baseElement.foregroundColor = currentSink.isMuted ?
-      ColorCache::lightRed() : ColorCache::purple();
+    baseElement.foregroundColor =
+      currentSink.isMuted ?
+        COLOR_MUTE :
+        Config::COLOR_FOREGROUND;
   }
 
   const char* getIcon(const std::string& name) {
-    if (name.find("bluez") != std::string::npos) return u8"\U000f02cb";
-    if (name.find("alsa") != std::string::npos) return "\ue638";
+    if (name.find("bluez") != std::string::npos) return ICON_HEADPHONES;
+    if (name.find("alsa") != std::string::npos) return ICON_SPEAKER;
     return "\xef\x90\x9c";
   }
 };

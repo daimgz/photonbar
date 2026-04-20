@@ -35,6 +35,10 @@ private:
   static constexpr const char* ICON_PAUSE = " \uf04c";
   static constexpr const char* ICON_LOGO  = u8"\U000f06ad";
 
+  const Color COLOR_RUNNING = Color::GREEN;
+  const Color COLOR_PAUSE   = Color::ORANGE;
+  const Color COLOR_STOP    = Color::RED;
+
   // Ya no necesitamos esta función - el timer debe seguir corriendo visualmente
 
   long long getRemainingMs() {
@@ -151,21 +155,18 @@ private:
   // Ya no necesitamos esta función - la visibilidad se maneja con contentLen = 0
 
   void applyColors() {
-    Color defaultColor = Color::parse_color("#E0AAFF", NULL, Color(224, 170, 255, 255));
-    Color redColor = Color::parse_color("#FF0000", NULL, Color(255, 0, 0, 255));
-    Color orangeColor = Color::parse_color("#FFA500", NULL, Color(255, 165, 0, 255));
-    Color greenColor = Color::parse_color("#90EE90", NULL, Color(144, 238, 144, 255));
+    //Color defaultColor = 0xE0AAFF;
 
     // Aplicar colores a todos los elementos según estado
     for (auto* elem : allElements) {
       if (!isRunning) {
-        elem->foregroundColor = defaultColor;
+        elem->foregroundColor = Config::COLOR_FOREGROUND;
       } else if (isPaused) {
-        elem->foregroundColor = orangeColor;
+        elem->foregroundColor = COLOR_PAUSE;
       } else if (getRemainingMs() == 0) {
-        elem->foregroundColor = redColor;
+        elem->foregroundColor = COLOR_STOP;
       } else {
-        elem->foregroundColor = greenColor;
+        elem->foregroundColor = COLOR_RUNNING;
       }
     }
   }
@@ -174,6 +175,7 @@ public:
   TimerModule() : Module("timer", false, 1) {
     setupAllElements();
     configureAllEvents();
+    update();
   }
 
   ~TimerModule() {
@@ -198,6 +200,12 @@ public:
     if (getRemainingMs() > 0 || !isRunning || isPaused) {
       notificationSent = false;
     }
+  }
+
+  bool shouldUpdate() override {
+    if (!isRunning || isPaused)
+      return false;
+    return Module::shouldUpdate();
   }
 
   void update() override {
